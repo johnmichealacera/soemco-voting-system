@@ -1,0 +1,355 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  MEMBER
+  BOARD_MEMBER
+  ELECTION_COMMITTEE
+  ADMIN
+}
+
+enum ElectionStatus {
+  DRAFT
+  ANNOUNCED
+  VOTING_ACTIVE
+  VOTING_CLOSED
+  RESULTS_CERTIFIED
+  CANCELLED
+}
+
+enum VoteType {
+  SINGLE_CHOICE
+  RANKED_CHOICE
+  APPROVAL_VOTING
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum WorkflowStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum NotificationType {
+  ELECTION_ANNOUNCEMENT
+  VOTING_REMINDER
+  RESULT_PUBLICATION
+  SYSTEM_ALERT
+  APPROVAL_REQUEST
+  WORKFLOW_UPDATE
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  role          UserRole  @default(MEMBER)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  memberProfile    MemberProfile?
+  sessions         Session[]
+  accounts         Account[]
+  auditTrails      AuditTrail[]
+  notifications    Notification[]
+  createdElections Election[] @relation("ElectionCreator")
+  candidates       Candidate[]
+  workflowInstances WorkflowInstance[] @relation("WorkflowInitiator")
+  workflowSteps    WorkflowStep[] @relation("WorkflowStepAssignee")
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model MemberProfile {
+  id              String        @id @default(cuid())
+  userId          String        @unique
+  memberId        String        @unique
+  firstName       String
+  lastName        String
+  middleName      String?
+  dateOfBirth     DateTime?
+  address         String?
+  phoneNumber     String?
+  status          MemberStatus  @default(PENDING_VERIFICATION)
+  membershipDate  DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  votes           Vote[]
+  auditTrails     AuditTrail[]
+
+  @@index([memberId])
+  @@index([status])
+}
+
+model Election {
+  id                    String        @id @default(cuid())
+  title                 String
+  description           String?       @db.Text
+  electionType          String        // Board Elections, Officer Elections, Special Votes
+  status                ElectionStatus @default(DRAFT)
+  voteType              VoteType      @default(SINGLE_CHOICE)
+  votingStartDate       DateTime
+  votingEndDate         DateTime
+  nominationStartDate   DateTime?
+  nominationEndDate      DateTime?
+  createdById           String
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  // Relations
+  creator               User          @relation("ElectionCreator", fields: [createdById], references: [id])
+  positions             Position[]
+  candidates            Candidate[]
+  votes                 Vote[]
+  results               ElectionResult[]
+  workflowInstances     WorkflowInstance[]
+  notifications         Notification[]
+
+  @@index([status])
+  @@index([votingStartDate, votingEndDate])
+  @@index([createdById])
+}
+
+model Position {
+  id          String   @id @default(cuid())
+  electionId  String?
+  title       String
+  description String?  @db.Text
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  election    Election? @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidates  Candidate[]
+  votes       Vote[]
+  results     ElectionResult[]
+
+  @@index([electionId])
+}
+
+model Candidate {
+  id                String   @id @default(cuid())
+  electionId        String
+  positionId        String
+  userId            String
+  nominationDate      DateTime @default(now())
+  status            String   @default("pending") // pending, approved, rejected, withdrawn
+  bio               String?  @db.Text
+  qualifications    String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  election          Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  position          Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  votes             Vote[]
+  results           ElectionResult[]
+
+  @@index([electionId])
+  @@index([positionId])
+  @@index([userId])
+  @@index([status])
+}
+
+model Vote {
+  id            String   @id @default(cuid())
+  electionId    String
+  candidateId  String?
+  positionId   String
+  memberId      String
+  voteToken     String   @unique // Unique token for anonymous voting
+  rankedChoices String?  // JSON array for ranked choice voting
+  approvalVotes String?  // JSON array for approval voting
+  createdAt     DateTime @default(now())
+
+  election      Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidate     Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  position      Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  member        MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([electionId, memberId]) // One vote per member per election
+  @@index([electionId])
+  @@index([voteToken])
+  @@index([memberId])
+}
+
+model ElectionResult {
+  id            String   @id @default(cuid())
+  electionId    String
+  positionId    String
+  candidateId   String?
+  voteCount     Int      @default(0)
+  percentage    Float    @default(0)
+  rank          Int?
+  certifiedAt   DateTime?
+  certifiedBy   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  election      Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  position      Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  candidate     Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+
+  @@index([electionId])
+  @@index([positionId])
+}
+
+model AuditTrail {
+  id          String   @id @default(cuid())
+  userId      String?
+  memberId    String?
+  action      String
+  entityType  String
+  entityId    String
+  changes     String?  @db.Text // JSON string of changes
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  member     MemberProfile? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id          String          @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  message     String          @db.Text
+  read        Boolean         @default(false)
+  link        String?
+  metadata    String?         @db.Text // JSON string
+  createdAt   DateTime        @default(now())
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  election    Election?       @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  electionId  String?
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model WorkflowTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  entityType  String   // election, candidate, member, etc.
+  steps       String   @db.Text // JSON array of workflow steps
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  instances   WorkflowInstance[]
+
+  @@index([entityType, isActive])
+}
+
+model WorkflowInstance {
+  id                String         @id @default(cuid())
+  templateId        String
+  entityType        String
+  entityId          String
+  status            WorkflowStatus @default(PENDING)
+  initiatedById     String
+  currentStepIndex  Int            @default(0)
+  completedAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  template          WorkflowTemplate @relation(fields: [templateId], references: [id])
+  initiator         User            @relation("WorkflowInitiator", fields: [initiatedById], references: [id])
+  steps             WorkflowStep[]
+  election          Election?       @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  electionId        String?
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([initiatedById])
+}
+
+model WorkflowStep {
+  id                String         @id @default(cuid())
+  instanceId        String
+  stepIndex         Int
+  stepName          String
+  assignedToId      String?
+  status            WorkflowStatus @default(PENDING)
+  comments          String?        @db.Text
+  completedAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  instance          WorkflowInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  assignedTo        User?          @relation("WorkflowStepAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([instanceId])
+  @@index([assignedToId, status])
+}
+
