@@ -12,7 +12,8 @@ import {
   Building2,
   ClipboardCheck,
   Settings,
-  BarChart3
+  BarChart3,
+  Megaphone
 } from "lucide-react"
 
 const roles = [
@@ -173,6 +174,49 @@ export function RoleSelection() {
               </div>
               <div className="mt-auto pt-6 border-t border-slate-200">
                 <p className="text-sm text-slate-500 font-medium group-hover:text-green-600 transition-colors">
+                  Click to view →
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Campaign Information Card */}
+          <Card
+            className="cursor-pointer transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] border-2 border-slate-200 hover:border-purple-500 group bg-white w-full md:w-[420px] flex-1 shadow-md"
+            onClick={() => router.push("/campaigns")}
+          >
+            <CardContent className="p-10 text-center flex flex-col h-full">
+              <div className="inline-flex p-6 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 mb-6 group-hover:scale-110 transition-transform shadow-xl">
+                <Megaphone className="h-12 w-12 text-white" />
+              </div>
+              <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mb-3">
+                Campaigns
+              </h3>
+              <p className="text-base md:text-lg text-slate-600 mb-6 font-medium">
+                Candidate Information & Profiles
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center mb-6">
+                <Badge
+                  variant="secondary"
+                  className="text-sm px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium rounded-md"
+                >
+                  Candidate Info
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="text-sm px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium rounded-md"
+                >
+                  Profiles
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="text-sm px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium rounded-md"
+                >
+                  Positions
+                </Badge>
+              </div>
+              <div className="mt-auto pt-6 border-t border-slate-200">
+                <p className="text-sm text-slate-500 font-medium group-hover:text-purple-600 transition-colors">
                   Click to view →
                 </p>
               </div>

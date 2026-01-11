@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
-import { User, TrendingUp, Users, BarChart3, Award, Briefcase } from "lucide-react"
+import { User, TrendingUp, Users, BarChart3, Award, Briefcase, RefreshCw } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense } from "react"
 import {
@@ -180,13 +180,22 @@ function ResultsContent() {
               {election.description}
             </p>
           )}
-          <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
-            <span>
-              Status:{" "}
-              <span className="font-semibold" style={{ color: "#3498db" }}>
-                {election.status.replace("_", " ")}
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
+              <span>
+                Status:{" "}
+                <span className="font-semibold" style={{ color: "#3498db" }}>
+                  {election.status.replace("_", " ")}
+                </span>
               </span>
-            </span>
+            </div>
+            {/* Live Update Indicator */}
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 border border-green-200">
+              <RefreshCw className="w-4 h-4 text-green-600 animate-spin" style={{ animationDuration: '2s' }} />
+              <span className="text-sm font-medium text-green-700">
+                Live Results - Auto-updating every 30 seconds
+              </span>
+            </div>
           </div>
         </div>
 
