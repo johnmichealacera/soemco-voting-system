@@ -13,11 +13,20 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle, UserMinus, Users } from "lucide-react"
+import { MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle, UserMinus, Users, Search, Filter } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { MemberForm } from "./member-form"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +34,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Pagination } from "@/components/ui/pagination"
 
 interface Member {
   id: string
@@ -50,8 +60,30 @@ interface Member {
   }
 }
 
-async function fetchMembers(): Promise<Member[]> {
-  const res = await fetch("/api/members")
+interface MembersResponse {
+  members: Member[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
+}
+
+async function fetchMembers(
+  page: number = 1,
+  pageSize: number = 10,
+  search: string = "",
+  status: string = ""
+): Promise<MembersResponse> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    pageSize: pageSize.toString(),
+  })
+  if (search) params.append("search", search)
+  if (status) params.append("status", status)
+
+  const res = await fetch(`/api/members?${params.toString()}`)
   if (!res.ok) throw new Error("Failed to fetch members")
   return res.json()
 }
@@ -127,11 +159,26 @@ export function MembersTable() {
   const [editingMember, setEditingMember] = useState<Member | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
+  
+  // Pagination and filter states
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("")
+  const [searchInput, setSearchInput] = useState("")
 
-  const { data: members, isLoading } = useQuery({
-    queryKey: ["members"],
-    queryFn: fetchMembers,
+  const { data: response, isLoading } = useQuery({
+    queryKey: ["members", page, pageSize, search, statusFilter],
+    queryFn: () => fetchMembers(page, pageSize, search, statusFilter),
   })
+
+  const members = response?.members || []
+  const pagination = response?.pagination || {
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 0,
+  }
 
   const deleteMutation = useMutation({
     mutationFn: deleteMember,
@@ -227,6 +274,39 @@ export function MembersTable() {
   const allSelected = members && members.length > 0 && selectedMembers.size === members.length
   const someSelected = selectedMembers.size > 0 && selectedMembers.size < (members?.length || 0)
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSearch(searchInput)
+    setPage(1) // Reset to first page on search
+    setSelectedMembers(new Set()) // Clear selection on search
+  }
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value)
+    setPage(1) // Reset to first page on filter change
+    setSelectedMembers(new Set()) // Clear selection on filter change
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+    setSelectedMembers(new Set()) // Clear selection on page change
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const handlePageSizeChange = (newPageSize: string) => {
+    setPageSize(parseInt(newPageSize))
+    setPage(1) // Reset to first page on page size change
+    setSelectedMembers(new Set()) // Clear selection on page size change
+  }
+
+  const clearFilters = () => {
+    setSearchInput("")
+    setSearch("")
+    setStatusFilter("")
+    setPage(1)
+    setSelectedMembers(new Set())
+  }
+
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -235,16 +315,76 @@ export function MembersTable() {
     )
   }
 
-  if (!members || members.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-600">No members found. Add your first member to get started.</p>
-      </div>
-    )
-  }
-
   return (
     <>
+      {/* Filters */}
+      <div className="mb-4 p-4 bg-white border rounded-lg space-y-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="h-4 w-4 text-gray-600" />
+          <h3 className="font-semibold" style={{ color: '#2c3e50' }}>Filters</h3>
+          {(search || statusFilter) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="ml-auto text-sm"
+            >
+              Clear Filters
+            </Button>
+          )}
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="search">Search</Label>
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <Input
+                id="search"
+                placeholder="Search by name, email, or member ID..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="flex-1"
+              />
+              <Button type="submit" size="sm" style={{ backgroundColor: '#3498db' }}>
+                <Search className="h-4 w-4" />
+              </Button>
+            </form>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger id="status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All statuses</SelectItem>
+                <SelectItem value={MemberStatus.ACTIVE}>Active</SelectItem>
+                <SelectItem value={MemberStatus.INACTIVE}>Inactive</SelectItem>
+                <SelectItem value={MemberStatus.SUSPENDED}>Suspended</SelectItem>
+                <SelectItem value={MemberStatus.PENDING_VERIFICATION}>Pending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pageSize">Items per page</Label>
+            <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+              <SelectTrigger id="pageSize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* Bulk Actions */}
       {selectedMembers.size > 0 && (
         <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -301,123 +441,158 @@ export function MembersTable() {
         </div>
       )}
 
-      <div className="rounded-lg border border-gray-200 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={handleSelectAll}
-                  aria-label="Select all"
-                />
-              </TableHead>
-              <TableHead>Member ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Votes</TableHead>
-              <TableHead>Member Since</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {members.map((member) => (
-              <TableRow 
-                key={member.id}
-                className={selectedMembers.has(member.id) ? "bg-blue-50" : ""}
-              >
-                <TableCell>
-                  <Checkbox
-                    checked={selectedMembers.has(member.id)}
-                    onCheckedChange={(checked) =>
-                      handleSelectMember(member.id, checked === true)
-                    }
-                    aria-label={`Select ${member.firstName} ${member.lastName}`}
-                  />
-                </TableCell>
-                <TableCell className="font-medium" style={{ color: '#2c3e50' }}>
-                  {member.memberId}
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <div className="font-medium" style={{ color: '#2c3e50' }}>
-                      {member.firstName} {member.middleName || ""} {member.lastName}
-                    </div>
-                    {member.user.name && (
-                      <div className="text-xs text-gray-500">{member.user.name}</div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-gray-600">{member.user.email}</TableCell>
-                <TableCell>{getStatusBadge(member.status)}</TableCell>
-                <TableCell className="text-gray-600">
-                  {member.phoneNumber || "-"}
-                </TableCell>
-                <TableCell className="text-center">
-                  <span className="font-semibold" style={{ color: '#2c3e50' }}>
-                    {member._count.votes}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm text-gray-600">
-                  {formatDate(member.membershipDate)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(member)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          handleStatusChange(member.id, MemberStatus.ACTIVE)
+      {members && members.length > 0 ? (
+        <>
+          <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
+                  <TableHead>Member ID</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Votes</TableHead>
+                  <TableHead>Member Since</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.map((member) => (
+                  <TableRow 
+                    key={member.id}
+                    className={selectedMembers.has(member.id) ? "bg-blue-50" : ""}
+                  >
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedMembers.has(member.id)}
+                        onCheckedChange={(checked) =>
+                          handleSelectMember(member.id, checked === true)
                         }
-                        disabled={member.status === MemberStatus.ACTIVE}
-                      >
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Activate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          handleStatusChange(member.id, MemberStatus.INACTIVE)
-                        }
-                        disabled={member.status === MemberStatus.INACTIVE}
-                      >
-                        <UserMinus className="mr-2 h-4 w-4" />
-                        Deactivate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          handleStatusChange(member.id, MemberStatus.SUSPENDED)
-                        }
-                        disabled={member.status === MemberStatus.SUSPENDED}
-                      >
-                        <XCircle className="mr-2 h-4 w-4" />
-                        Suspend
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(member.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                        aria-label={`Select ${member.firstName} ${member.lastName}`}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium" style={{ color: '#2c3e50' }}>
+                      {member.memberId}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium" style={{ color: '#2c3e50' }}>
+                          {member.firstName} {member.middleName || ""} {member.lastName}
+                        </div>
+                        {member.user.name && (
+                          <div className="text-xs text-gray-500">{member.user.name}</div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-gray-600">{member.user.email}</TableCell>
+                    <TableCell>{getStatusBadge(member.status)}</TableCell>
+                    <TableCell className="text-gray-600">
+                      {member.phoneNumber || "-"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="font-semibold" style={{ color: '#2c3e50' }}>
+                        {member._count.votes}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm text-gray-600">
+                      {formatDate(member.membershipDate)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(member)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleStatusChange(member.id, MemberStatus.ACTIVE)
+                            }
+                            disabled={member.status === MemberStatus.ACTIVE}
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Activate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleStatusChange(member.id, MemberStatus.INACTIVE)
+                            }
+                            disabled={member.status === MemberStatus.INACTIVE}
+                          >
+                            <UserMinus className="mr-2 h-4 w-4" />
+                            Deactivate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              handleStatusChange(member.id, MemberStatus.SUSPENDED)
+                            }
+                            disabled={member.status === MemberStatus.SUSPENDED}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Suspend
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(member.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          {pagination.totalPages > 0 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-gray-600">
+                Showing {((pagination.page - 1) * pagination.pageSize) + 1} to{" "}
+                {Math.min(pagination.page * pagination.pageSize, pagination.total)} of{" "}
+                {pagination.total} member(s)
+              </div>
+              <Pagination
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="rounded-lg border border-gray-200 p-12 bg-white">
+          <div className="text-center">
+            <p className="text-gray-600 text-lg mb-2">No members found</p>
+            {(search || statusFilter) ? (
+              <p className="text-sm text-gray-500">
+                Try adjusting your filters or search terms to find members.
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">
+                Add your first member to get started.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {isFormOpen && (
         <MemberForm

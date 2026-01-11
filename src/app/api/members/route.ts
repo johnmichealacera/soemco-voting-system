@@ -6,7 +6,7 @@ import { UserRole, MemberStatus } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { generateMemberId } from "@/lib/utils"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -18,7 +18,51 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get("page") || "1")
+    const pageSize = parseInt(searchParams.get("pageSize") || "10")
+    const search = searchParams.get("search") || ""
+    const status = searchParams.get("status") || ""
+
+    // Build where clause
+    const where: any = {}
+
+    // Filter by status
+    if (status && Object.values(MemberStatus).includes(status as MemberStatus)) {
+      where.status = status as MemberStatus
+    }
+
+    // Search filter (search in memberId, firstName, lastName, email)
+    if (search) {
+      const searchConditions = [
+        { memberId: { contains: search, mode: "insensitive" } },
+        { firstName: { contains: search, mode: "insensitive" } },
+        { lastName: { contains: search, mode: "insensitive" } },
+        { user: { email: { contains: search, mode: "insensitive" } } },
+      ]
+
+      // If status filter exists, combine with AND
+      if (where.status) {
+        where.AND = [
+          { status: where.status },
+          { OR: searchConditions },
+        ]
+        delete where.status
+      } else {
+        where.OR = searchConditions
+      }
+    }
+
+    // Get total count
+    const total = await prisma.memberProfile.count({ where })
+
+    // Calculate pagination
+    const skip = (page - 1) * pageSize
+    const totalPages = Math.ceil(total / pageSize)
+
+    // Get members with pagination
     const members = await prisma.memberProfile.findMany({
+      where,
       include: {
         user: {
           select: {
@@ -36,9 +80,19 @@ export async function GET() {
         },
       },
       orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
     })
 
-    return NextResponse.json(members)
+    return NextResponse.json({
+      members,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+      },
+    })
   } catch (error) {
     console.error("Error fetching members:", error)
     return NextResponse.json(
