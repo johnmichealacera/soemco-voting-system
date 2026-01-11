@@ -46,7 +46,18 @@ export async function GET() {
               where: {
                 status: "approved",
               },
-              include: {
+              select: {
+                id: true,
+                electionId: true,
+                positionId: true,
+                userId: true,
+                status: true,
+                imageUrl: true,
+                bio: true,
+                qualifications: true,
+                nominationDate: true,
+                createdAt: true,
+                updatedAt: true,
                 user: {
                   select: {
                     id: true,

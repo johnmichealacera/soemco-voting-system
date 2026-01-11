@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useState, useEffect } from "react"
 import { VoteType, ElectionStatus } from "@prisma/client"
+import Image from "next/image"
+import { User } from "lucide-react"
 
 async function getActiveElections() {
   const res = await fetch("/api/voting/elections")
@@ -221,6 +223,24 @@ export function KioskVotingInterface() {
                               id={`candidate-${candidate.id}`}
                               className="mt-1"
                             />
+                            {/* Candidate Image */}
+                            <div className="flex-shrink-0">
+                              {candidate.imageUrl ? (
+                                <div className="relative w-20 h-20 rounded-full overflow-hidden border-2" style={{ borderColor: '#3498db' }}>
+                                  <Image
+                                    src={candidate.imageUrl}
+                                    alt={candidateName}
+                                    fill
+                                    className="object-cover"
+                                    sizes="80px"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center border-2" style={{ borderColor: '#dee2e6' }}>
+                                  <User className="w-10 h-10 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
                             <Label
                               htmlFor={`candidate-${candidate.id}`}
                               className="flex-1 cursor-pointer"
