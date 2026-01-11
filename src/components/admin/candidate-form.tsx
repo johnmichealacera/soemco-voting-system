@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
@@ -21,6 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Check, ChevronsUpDown, Search } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface Candidate {
   id: string
@@ -90,8 +97,17 @@ async function fetchPositions(electionId: string): Promise<Position[]> {
 }
 
 async function fetchMembers(): Promise<Member[]> {
-  const res = await fetch("/api/members")
+  // Fetch all members by using a large pageSize
+  const res = await fetch("/api/members?pageSize=10000")
   if (!res.ok) throw new Error("Failed to fetch members")
+  const data = await res.json()
+  // Handle paginated response structure
+  return data.members || data
+}
+
+async function fetchCandidates(): Promise<Candidate[]> {
+  const res = await fetch("/api/candidates")
+  if (!res.ok) throw new Error("Failed to fetch candidates")
   return res.json()
 }
 
@@ -137,6 +153,12 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
     enabled: open,
   })
 
+  const { data: candidates } = useQuery({
+    queryKey: ["candidates"],
+    queryFn: fetchCandidates,
+    enabled: open,
+  })
+
   const [selectedElectionId, setSelectedElectionId] = useState("")
   const { data: positions } = useQuery({
     queryKey: ["positions", selectedElectionId],
@@ -152,6 +174,52 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
     bio: "",
     qualifications: "",
   })
+
+  // Search state for member dropdown
+  const [memberSearchOpen, setMemberSearchOpen] = useState(false)
+  const [memberSearchQuery, setMemberSearchQuery] = useState("")
+
+  // Filter members based on search query and exclude existing candidates
+  const filteredMembers = useMemo(() => {
+    if (!members || !Array.isArray(members)) return []
+
+    // Get list of user IDs that are already candidates (exclude current candidate if editing)
+    const existingCandidateUserIds = new Set(
+      (candidates || [])
+        .filter((c: Candidate) => isEditing ? c.id !== candidate?.id : true)
+        .map((c: Candidate) => c.userId)
+    )
+
+    // Filter out members who are already candidates
+    let availableMembers = members.filter(
+      (member: any) => !existingCandidateUserIds.has(member.userId)
+    )
+
+    // Apply search filter if there's a search query
+    if (memberSearchQuery.trim()) {
+      const query = memberSearchQuery.toLowerCase().trim()
+      availableMembers = availableMembers.filter((member: any) => {
+        const fullName = `${member.firstName} ${member.lastName}`.toLowerCase()
+        const email = member.user?.email?.toLowerCase() || ""
+        const displayName = member.user?.name?.toLowerCase() || ""
+        const memberId = member.memberId?.toLowerCase() || ""
+        return (
+          fullName.includes(query) ||
+          email.includes(query) ||
+          displayName.includes(query) ||
+          memberId.includes(query)
+        )
+      })
+    }
+
+    return availableMembers
+  }, [members, memberSearchQuery, candidates, isEditing, candidate])
+
+  // Get selected member display name
+  const selectedMember = useMemo(() => {
+    if (!formData.userId || !members) return null
+    return members.find((m) => m.userId === formData.userId)
+  }, [formData.userId, members])
 
   useEffect(() => {
     if (candidate) {
@@ -190,6 +258,14 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
       setFormData((prev) => ({ ...prev, positionId: "" }))
     }
   }, [formData.electionId, isEditing])
+
+  // Reset member search when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setMemberSearchOpen(false)
+      setMemberSearchQuery("")
+    }
+  }, [open])
 
   const createMutation = useMutation({
     mutationFn: createCandidate,
@@ -307,23 +383,83 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
 
                 <div className="grid gap-2">
                   <Label htmlFor="userId">Member *</Label>
-                  <Select
-                    value={formData.userId}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, userId: value })
-                    }
-                  >
-                    <SelectTrigger id="userId">
-                      <SelectValue placeholder="Select a member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {members?.map((member) => (
-                        <SelectItem key={member.userId} value={member.userId}>
-                          {member.user.name || `${member.firstName} ${member.lastName}`} ({member.user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={memberSearchOpen} onOpenChange={setMemberSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={memberSearchOpen}
+                        className="w-full justify-between h-10"
+                        id="userId"
+                      >
+                        {selectedMember
+                          ? `${selectedMember.user?.name || `${selectedMember.firstName} ${selectedMember.lastName}`} (${selectedMember.user?.email})`
+                          : "Select a member..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent 
+                      className="w-[400px] p-0" 
+                      align="start" 
+                      side="bottom" 
+                      sideOffset={4}
+                      avoidCollisions={false}
+                    >
+                      <div className="p-2 border-b">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search by name, email, or member ID..."
+                            value={memberSearchQuery}
+                            onChange={(e) => setMemberSearchQuery(e.target.value)}
+                            className="pl-8"
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-[300px] overflow-y-auto">
+                        {filteredMembers && filteredMembers.length > 0 ? (
+                          filteredMembers.map((member) => (
+                            <div
+                              key={member.userId}
+                              className={cn(
+                                "relative flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm outline-none transition-colors border border-transparent hover:border-slate-200 hover:bg-slate-50",
+                                formData.userId === member.userId && "bg-blue-50 border-blue-200"
+                              )}
+                              onClick={() => {
+                                setFormData({ ...formData, userId: member.userId })
+                                setMemberSearchOpen(false)
+                                setMemberSearchQuery("")
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-3 h-4 w-4 flex-shrink-0 transition-opacity",
+                                  formData.userId === member.userId
+                                    ? "opacity-100 text-blue-600"
+                                    : "opacity-0"
+                                )}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-foreground truncate">
+                                  {member.user?.name || `${member.firstName} ${member.lastName}`}
+                                </div>
+                                <div className="text-xs text-slate-600 truncate">
+                                  {member.user?.email}
+                                  {(member as any).memberId && ` • ${(member as any).memberId}`}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-6 text-center text-sm text-muted-foreground">
+                            {memberSearchQuery
+                              ? "No members found matching your search."
+                              : "No members available."}
+                          </div>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </>
             )}
