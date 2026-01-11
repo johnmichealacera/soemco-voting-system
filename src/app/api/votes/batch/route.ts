@@ -81,9 +81,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate a single vote token for all votes in this election
-    const voteToken = generateVoteToken()
-
+    // Generate a unique vote token for each vote
     // Create all votes in a transaction
     const createdVotes = await prisma.$transaction(
       votes.map((vote: { positionId: string; candidateId: string }) =>
@@ -93,7 +91,7 @@ export async function POST(request: Request) {
             positionId: vote.positionId,
             candidateId: vote.candidateId || null,
             memberId: member.id,
-            voteToken,
+            voteToken: generateVoteToken(),
           },
         })
       )
@@ -119,8 +117,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
-        voteToken,
         votesCount: createdVotes.length,
+        votes: createdVotes.map(v => ({ id: v.id, voteToken: v.voteToken })),
       },
       { status: 201 }
     )
