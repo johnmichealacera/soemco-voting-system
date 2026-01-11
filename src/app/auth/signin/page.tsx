@@ -101,7 +101,25 @@ export default function SignInPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Commented out member login - using kiosk login instead */}
+            {selectedRole === "MEMBER" ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-3">
+                    Member login is now available through the Voting Kiosk.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => router.push("/auth/kiosk")}
+                    className="w-full"
+                    style={{ backgroundColor: '#3498db' }}
+                  >
+                    Go to Voting Kiosk
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -131,6 +149,7 @@ export default function SignInPage() {
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
+            )}
           </CardContent>
         </Card>
       </div>

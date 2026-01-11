@@ -9,11 +9,14 @@ import { Button } from "@/components/ui/button"
 import { UserCircle, Plus } from "lucide-react"
 import { MembersTable } from "@/components/admin/members-table"
 import { MemberForm } from "@/components/admin/member-form"
+import { MemberImportDialog } from "@/components/admin/member-import-dialog"
+import { Upload } from "lucide-react"
 
 export default function AdminMembersPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isImportOpen, setIsImportOpen] = useState(false)
 
   if (status === "loading") {
     return (
@@ -40,13 +43,23 @@ export default function AdminMembersPage() {
               Manage cooperative members and their profiles
             </p>
           </div>
-          <Button
-            onClick={() => setIsFormOpen(true)}
-            style={{ backgroundColor: '#3498db' }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Member
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => setIsImportOpen(true)}
+              variant="outline"
+              style={{ borderColor: '#3498db', color: '#3498db' }}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Import Excel
+            </Button>
+            <Button
+              onClick={() => setIsFormOpen(true)}
+              style={{ backgroundColor: '#3498db' }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Member
+            </Button>
+          </div>
         </div>
 
         <Card className="border-0 shadow-md">
@@ -69,6 +82,13 @@ export default function AdminMembersPage() {
             member={null}
             open={isFormOpen}
             onClose={() => setIsFormOpen(false)}
+          />
+        )}
+
+        {isImportOpen && (
+          <MemberImportDialog
+            open={isImportOpen}
+            onClose={() => setIsImportOpen(false)}
           />
         )}
       </div>

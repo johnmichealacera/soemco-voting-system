@@ -3,7 +3,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
-import { UserRole } from "@prisma/client"
+import { UserRole, MemberStatus } from "@prisma/client"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -41,6 +41,42 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+        }
+      }
+    }),
+    CredentialsProvider({
+      id: "kiosk",
+      name: "Kiosk",
+      credentials: {
+        memberId: { label: "Member ID", type: "text" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.memberId) {
+          throw new Error("Member ID is required")
+        }
+
+        // Find member by memberId
+        const member = await prisma.memberProfile.findUnique({
+          where: { memberId: credentials.memberId },
+          include: {
+            user: true
+          }
+        })
+
+        if (!member || !member.user) {
+          throw new Error("Member not found")
+        }
+
+        // Check if member is active
+        if (member.status !== MemberStatus.ACTIVE) {
+          throw new Error("Member account is not active")
+        }
+
+        return {
+          id: member.user.id,
+          email: member.user.email,
+          name: `${member.firstName} ${member.lastName}`,
+          role: member.user.role,
         }
       }
     })

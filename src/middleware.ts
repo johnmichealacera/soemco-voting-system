@@ -50,6 +50,7 @@ export const config = {
     "/committee/:path*",
     "/elections/:path*",
     "/voting/:path*",
+    "/kiosk/:path*",
     "/members/:path*",
     "/profile/:path*",
   ],

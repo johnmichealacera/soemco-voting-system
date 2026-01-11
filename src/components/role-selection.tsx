@@ -69,8 +69,12 @@ export function RoleSelection() {
   const selectRole = (role: UserRole) => {
     // Store selected role in sessionStorage
     sessionStorage.setItem("selectedRole", role)
-    // Redirect to sign-in
-    router.push("/auth/signin")
+    // Redirect to kiosk login for MEMBER role, otherwise sign-in
+    if (role === "MEMBER") {
+      router.push("/auth/kiosk")
+    } else {
+      router.push("/auth/signin")
+    }
   }
 
   return (

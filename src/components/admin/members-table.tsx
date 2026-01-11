@@ -13,16 +13,18 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle, UserMinus, Users } from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
+import { MemberForm } from "./member-form"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle, UserMinus } from "lucide-react"
-import { useState } from "react"
-import { toast } from "sonner"
-import { MemberForm } from "./member-form"
 
 interface Member {
   id: string
@@ -78,6 +80,19 @@ async function updateMemberStatus(id: string, status: MemberStatus) {
   return res.json()
 }
 
+async function bulkUpdateMembers(memberIds: string[], status: MemberStatus) {
+  const res = await fetch("/api/members/bulk", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ memberIds, status }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to update members")
+  }
+  return res.json()
+}
+
 function getStatusBadge(status: MemberStatus) {
   const statusConfig = {
     [MemberStatus.ACTIVE]: {
@@ -111,6 +126,7 @@ export function MembersTable() {
   const queryClient = useQueryClient()
   const [editingMember, setEditingMember] = useState<Member | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
 
   const { data: members, isLoading } = useQuery({
     queryKey: ["members"],
@@ -140,6 +156,19 @@ export function MembersTable() {
     },
   })
 
+  const bulkUpdateMutation = useMutation({
+    mutationFn: ({ memberIds, status }: { memberIds: string[]; status: MemberStatus }) =>
+      bulkUpdateMembers(memberIds, status),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["members"] })
+      setSelectedMembers(new Set())
+      toast.success(data.message || "Members updated successfully")
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
   const handleEdit = (member: Member) => {
     setEditingMember(member)
     setIsFormOpen(true)
@@ -160,6 +189,44 @@ export function MembersTable() {
     setEditingMember(null)
   }
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked && members) {
+      setSelectedMembers(new Set(members.map((m) => m.id)))
+    } else {
+      setSelectedMembers(new Set())
+    }
+  }
+
+  const handleSelectMember = (memberId: string, checked: boolean) => {
+    const newSelected = new Set(selectedMembers)
+    if (checked) {
+      newSelected.add(memberId)
+    } else {
+      newSelected.delete(memberId)
+    }
+    setSelectedMembers(newSelected)
+  }
+
+  const handleBulkStatusChange = (status: MemberStatus) => {
+    if (selectedMembers.size === 0) {
+      toast.error("Please select at least one member")
+      return
+    }
+
+    const memberIds = Array.from(selectedMembers)
+    const statusName = status === MemberStatus.ACTIVE ? "Active" :
+                       status === MemberStatus.INACTIVE ? "Inactive" :
+                       status === MemberStatus.SUSPENDED ? "Suspended" :
+                       "Pending"
+
+    if (confirm(`Are you sure you want to set ${memberIds.length} member(s) to ${statusName}?`)) {
+      bulkUpdateMutation.mutate({ memberIds, status })
+    }
+  }
+
+  const allSelected = members && members.length > 0 && selectedMembers.size === members.length
+  const someSelected = selectedMembers.size > 0 && selectedMembers.size < (members?.length || 0)
+
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -178,10 +245,73 @@ export function MembersTable() {
 
   return (
     <>
+      {selectedMembers.size > 0 && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <span className="font-medium text-blue-900">
+              {selectedMembers.size} member(s) selected
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedMembers(new Set())}
+            >
+              Clear Selection
+            </Button>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="default"
+                size="sm"
+                style={{ backgroundColor: '#3498db' }}
+                disabled={bulkUpdateMutation.isPending}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Bulk Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => handleBulkStatusChange(MemberStatus.ACTIVE)}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Set to Active
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleBulkStatusChange(MemberStatus.INACTIVE)}
+              >
+                <UserMinus className="mr-2 h-4 w-4" />
+                Set to Inactive
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleBulkStatusChange(MemberStatus.SUSPENDED)}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Set to Suspended
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleBulkStatusChange(MemberStatus.PENDING_VERIFICATION)}
+              >
+                Set to Pending
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
       <div className="rounded-lg border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
               <TableHead>Member ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
@@ -194,7 +324,19 @@ export function MembersTable() {
           </TableHeader>
           <TableBody>
             {members.map((member) => (
-              <TableRow key={member.id}>
+              <TableRow 
+                key={member.id}
+                className={selectedMembers.has(member.id) ? "bg-blue-50" : ""}
+              >
+                <TableCell>
+                  <Checkbox
+                    checked={selectedMembers.has(member.id)}
+                    onCheckedChange={(checked) =>
+                      handleSelectMember(member.id, checked === true)
+                    }
+                    aria-label={`Select ${member.firstName} ${member.lastName}`}
+                  />
+                </TableCell>
                 <TableCell className="font-medium" style={{ color: '#2c3e50' }}>
                   {member.memberId}
                 </TableCell>

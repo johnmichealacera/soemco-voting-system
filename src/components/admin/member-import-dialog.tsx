@@ -1,0 +1,293 @@
+"use client"
+
+import { useState } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from "lucide-react"
+
+interface MemberImportDialogProps {
+  open: boolean
+  onClose: () => void
+}
+
+interface ImportResult {
+  message: string
+  results: {
+    success: number
+    failed: number
+    skipped: number
+    errors: string[]
+  }
+}
+
+async function importMembers(file: File): Promise<ImportResult> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  const res = await fetch("/api/members/import", {
+    method: "POST",
+    body: formData,
+  })
+
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to import members")
+  }
+
+  return res.json()
+}
+
+export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
+  const queryClient = useQueryClient()
+  const [file, setFile] = useState<File | null>(null)
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const importMutation = useMutation({
+    mutationFn: importMembers,
+    onSuccess: (data) => {
+      setImportResult(data)
+      queryClient.invalidateQueries({ queryKey: ["members"] })
+      toast.success(data.message)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to import members")
+    },
+  })
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0]
+    if (selectedFile) {
+      const ext = selectedFile.name.split(".").pop()?.toLowerCase()
+      if (ext && ["xls", "xlsx", "csv"].includes(ext)) {
+        setFile(selectedFile)
+        setImportResult(null)
+      } else {
+        toast.error("Please select an Excel file (.xls, .xlsx) or CSV file")
+      }
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragging(false)
+
+    const droppedFile = e.dataTransfer.files[0]
+    if (droppedFile) {
+      const ext = droppedFile.name.split(".").pop()?.toLowerCase()
+      if (ext && ["xls", "xlsx", "csv"].includes(ext)) {
+        setFile(droppedFile)
+        setImportResult(null)
+      } else {
+        toast.error("Please select an Excel file (.xls, .xlsx) or CSV file")
+      }
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleSubmit = () => {
+    if (!file) {
+      toast.error("Please select a file to import")
+      return
+    }
+
+    importMutation.mutate(file)
+  }
+
+  const handleClose = () => {
+    setFile(null)
+    setImportResult(null)
+    onClose()
+  }
+
+  const isLoading = importMutation.isPending
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle style={{ color: '#2c3e50' }}>
+            Import Members from Excel
+          </DialogTitle>
+          <DialogDescription>
+            Upload an Excel file (.xls, .xlsx) to import members. The file should contain columns for First Name, Last Name, Email (optional), and other member details.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {!importResult ? (
+            <>
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  isDragging
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-300 hover:border-gray-400"
+                }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+              >
+                {file ? (
+                  <div className="space-y-2">
+                    <FileSpreadsheet className="h-12 w-12 mx-auto text-blue-500" />
+                    <p className="font-medium text-gray-700">{file.name}</p>
+                    <p className="text-sm text-gray-500">
+                      {(file.size / 1024).toFixed(2)} KB
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFile(null)}
+                    >
+                      Remove File
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Upload className="h-12 w-12 mx-auto text-gray-400" />
+                    <div>
+                      <Label
+                        htmlFor="file-upload"
+                        className="cursor-pointer text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Click to upload
+                      </Label>
+                      <span className="text-gray-500"> or drag and drop</span>
+                      <input
+                        id="file-upload"
+                        type="file"
+                        accept=".xls,.xlsx,.csv"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      Excel files (.xls, .xlsx) up to 10MB
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-sm mb-2" style={{ color: '#2c3e50' }}>
+                  Expected Column Headers:
+                </h4>
+                <ul className="text-xs text-gray-600 space-y-1">
+                  <li>• <strong>First Name</strong> (required)</li>
+                  <li>• <strong>Last Name</strong> (required)</li>
+                  <li>• <strong>Email</strong> (optional - will be auto-generated if not provided)</li>
+                  <li>• <strong>Middle Name</strong> (optional)</li>
+                  <li>• <strong>Date of Birth</strong> (optional)</li>
+                  <li>• <strong>Address</strong> (optional)</li>
+                  <li>• <strong>Phone Number</strong> (optional)</li>
+                  <li>• <strong>Member ID</strong> (optional - will be auto-generated if not provided)</li>
+                </ul>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div
+                className={`p-4 rounded-lg border ${
+                  importResult.results.failed > 0
+                    ? "bg-yellow-50 border-yellow-200"
+                    : "bg-green-50 border-green-200"
+                }`}
+              >
+                <div className="flex items-start space-x-3">
+                  {importResult.results.failed > 0 ? (
+                    <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                  ) : (
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-sm mb-2">
+                      {importResult.message}
+                    </p>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Success:</p>
+                        <p className="font-semibold text-green-600">
+                          {importResult.results.success}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Failed:</p>
+                        <p className="font-semibold text-red-600">
+                          {importResult.results.failed}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Skipped:</p>
+                        <p className="font-semibold text-gray-600">
+                          {importResult.results.skipped}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {importResult.results.errors.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-h-60 overflow-y-auto">
+                  <h4 className="font-semibold text-sm mb-2 text-red-800">
+                    Errors:
+                  </h4>
+                  <ul className="text-xs text-red-700 space-y-1">
+                    {importResult.results.errors.slice(0, 10).map((error, idx) => (
+                      <li key={idx}>• {error}</li>
+                    ))}
+                    {importResult.results.errors.length > 10 && (
+                      <li className="text-gray-600">
+                        ... and {importResult.results.errors.length - 10} more errors
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          {importResult ? (
+            <Button onClick={handleClose} style={{ backgroundColor: '#3498db' }}>
+              Close
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={handleClose} disabled={isLoading}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={!file || isLoading}
+                style={{ backgroundColor: '#3498db' }}
+              >
+                {isLoading ? "Importing..." : "Import Members"}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
