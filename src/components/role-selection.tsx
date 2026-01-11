@@ -11,7 +11,8 @@ import {
   Vote,
   Building2,
   ClipboardCheck,
-  Settings
+  Settings,
+  BarChart3
 } from "lucide-react"
 
 const roles = [
@@ -95,7 +96,7 @@ export function RoleSelection() {
           </p>
         </div>
 
-        <div className="flex flex-col md:flex-row items-stretch justify-center gap-8 mb-12 max-w-4xl mx-auto">
+        <div className="flex flex-col md:flex-row items-stretch justify-center gap-8 mb-12 max-w-5xl mx-auto">
           {roles.map((role) => {
             const Icon = role.icon
             return (
@@ -134,6 +135,49 @@ export function RoleSelection() {
               </Card>
             )
           })}
+          
+          {/* View Results Card */}
+          <Card
+            className="cursor-pointer transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] border-2 border-slate-200 hover:border-green-500 group bg-white w-full md:w-[420px] flex-1 shadow-md"
+            onClick={() => router.push("/results")}
+          >
+            <CardContent className="p-10 text-center flex flex-col h-full">
+              <div className="inline-flex p-6 rounded-full bg-gradient-to-br from-green-500 to-green-700 mb-6 group-hover:scale-110 transition-transform shadow-xl">
+                <BarChart3 className="h-12 w-12 text-white" />
+              </div>
+              <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mb-3">
+                View Results
+              </h3>
+              <p className="text-base md:text-lg text-slate-600 mb-6 font-medium">
+                Election Results & Statistics
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center mb-6">
+                <Badge
+                  variant="secondary"
+                  className="text-sm px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium rounded-md"
+                >
+                  Live Results
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="text-sm px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium rounded-md"
+                >
+                  Vote Counts
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="text-sm px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium rounded-md"
+                >
+                  Statistics
+                </Badge>
+              </div>
+              <div className="mt-auto pt-6 border-t border-slate-200">
+                <p className="text-sm text-slate-500 font-medium group-hover:text-green-600 transition-colors">
+                  Click to view →
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="mt-8 text-center">

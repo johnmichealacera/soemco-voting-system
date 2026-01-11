@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ElectionStatus } from "@prisma/client"
 import { formatDate } from "@/lib/utils"
 import Link from "next/link"
-import { Vote, Clock, CheckCircle } from "lucide-react"
+import { Vote, Clock, CheckCircle, BarChart3 } from "lucide-react"
 
 async function getElections() {
   const res = await fetch("/api/elections")
@@ -106,11 +106,17 @@ export function ElectionsList() {
                     Voting Not Started
                   </Button>
                 )}
+                <Button variant="outline" asChild>
+                  <Link href={`/results/${election.id}`}>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    View Results
+                  </Link>
+                </Button>
                 {election.status === ElectionStatus.RESULTS_CERTIFIED && (
                   <Button variant="outline" asChild>
-                    <Link href={`/elections/${election.id}/results`}>
+                    <Link href={`/results/${election.id}`}>
                       <CheckCircle className="mr-2 h-4 w-4" />
-                      View Results
+                      Certified Results
                     </Link>
                   </Button>
                 )}
