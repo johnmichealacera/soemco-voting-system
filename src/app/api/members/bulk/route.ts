@@ -57,3 +57,104 @@ export async function PUT(request: Request) {
     )
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Only ADMIN can perform bulk operations
+    if (session.user.role !== UserRole.ADMIN) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const { memberIds } = body
+
+    if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
+      return NextResponse.json(
+        { error: "memberIds array is required and must not be empty" },
+        { status: 400 }
+      )
+    }
+
+    // Check which members have votes (cannot delete members with votes)
+    const membersWithVotes = await prisma.memberProfile.findMany({
+      where: {
+        id: {
+          in: memberIds,
+        },
+      },
+      include: {
+        _count: {
+          select: {
+            votes: true,
+          },
+        },
+      },
+    })
+
+    // Separate members that can be deleted from those that cannot
+    const deletableMemberIds = membersWithVotes
+      .filter((member) => member._count.votes === 0)
+      .map((member) => member.id)
+
+    const nonDeletableMembers = membersWithVotes.filter(
+      (member) => member._count.votes > 0
+    )
+
+    if (deletableMemberIds.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Cannot delete selected members. All selected members have votes. Consider deactivating instead.",
+        },
+        { status: 400 }
+      )
+    }
+
+    // Delete members without votes (delete User records, which will cascade delete MemberProfiles)
+    const usersToDelete = await prisma.memberProfile.findMany({
+      where: {
+        id: {
+          in: deletableMemberIds,
+        },
+      },
+      select: {
+        userId: true,
+      },
+    })
+
+    const userIdsToDelete = usersToDelete.map(m => m.userId)
+
+    // Delete users (this will cascade delete member profiles due to foreign key constraints)
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: userIdsToDelete,
+        },
+      },
+    })
+
+    const result = { count: userIdsToDelete.length }
+
+    let message = `Successfully deleted ${result.count} member(s).`
+    if (nonDeletableMembers.length > 0) {
+      message += ` ${nonDeletableMembers.length} member(s) could not be deleted because they have votes.`
+    }
+
+    return NextResponse.json({
+      message,
+      count: result.count,
+      skipped: nonDeletableMembers.length,
+    })
+  } catch (error: any) {
+    console.error("Error deleting members:", error)
+    return NextResponse.json(
+      { error: error.message || "Internal server error" },
+      { status: 500 }
+    )
+  }
+}

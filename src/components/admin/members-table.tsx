@@ -125,6 +125,19 @@ async function bulkUpdateMembers(memberIds: string[], status: MemberStatus) {
   return res.json()
 }
 
+async function bulkDeleteMembers(memberIds: string[]) {
+  const res = await fetch("/api/members/bulk", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ memberIds }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to delete members")
+  }
+  return res.json()
+}
+
 function getStatusBadge(status: MemberStatus) {
   const statusConfig = {
     [MemberStatus.ACTIVE]: {
@@ -216,6 +229,18 @@ export function MembersTable() {
     },
   })
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (memberIds: string[]) => bulkDeleteMembers(memberIds),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["members"] })
+      setSelectedMembers(new Set())
+      toast.success(data.message || "Members deleted successfully")
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
   const handleEdit = (member: Member) => {
     setEditingMember(member)
     setIsFormOpen(true)
@@ -268,6 +293,22 @@ export function MembersTable() {
 
     if (confirm(`Are you sure you want to set ${memberIds.length} member(s) to ${statusName}?`)) {
       bulkUpdateMutation.mutate({ memberIds, status })
+    }
+  }
+
+  const handleBulkDelete = () => {
+    if (selectedMembers.size === 0) {
+      toast.error("Please select at least one member")
+      return
+    }
+
+    const memberIds = Array.from(selectedMembers)
+    if (
+      confirm(
+        `Are you sure you want to delete ${memberIds.length} member(s)? This action cannot be undone. Members with votes cannot be deleted.`
+      )
+    ) {
+      bulkDeleteMutation.mutate(memberIds)
     }
   }
 
@@ -405,7 +446,7 @@ export function MembersTable() {
                 variant="default"
                 size="sm"
                 style={{ backgroundColor: '#3498db' }}
-                disabled={bulkUpdateMutation.isPending}
+                disabled={bulkUpdateMutation.isPending || bulkDeleteMutation.isPending}
               >
                 <Users className="mr-2 h-4 w-4" />
                 Bulk Actions
@@ -435,6 +476,14 @@ export function MembersTable() {
                 onClick={() => handleBulkStatusChange(MemberStatus.PENDING_VERIFICATION)}
               >
                 Set to Pending
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleBulkDelete}
+                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Selected
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

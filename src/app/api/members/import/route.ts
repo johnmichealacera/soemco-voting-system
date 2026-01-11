@@ -7,6 +7,18 @@ import bcrypt from "bcryptjs"
 import { generateMemberId } from "@/lib/utils"
 import * as XLSX from "xlsx"
 
+interface MemberData {
+  firstName: string
+  lastName: string
+  middleName: string | null
+  email: string
+  memberId: string
+  dateOfBirth: Date | null
+  address: string | null
+  phoneNumber: string | null
+  rowNum: number
+}
+
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -58,17 +70,11 @@ export async function POST(request: Request) {
     })
     
     // Find column indices based on actual Excel file structure
-    // Look for "ID" column (member ID like "14-0000441-0")
     const memberIdIdx = headers.findIndex(h => h && (h === "id" || h === "member id" || (h.includes("member") && h.includes("id"))))
-    // Look for "Name of Client" column
     const nameIdx = headers.findIndex(h => h && ((h.includes("name") && h.includes("client")) || h === "name" || h === "full name"))
-    // Look for "Date of Birth" column
     const dateOfBirthIdx = headers.findIndex(h => h && ((h.includes("date") && h.includes("birth")) || h.includes("dob") || h === "birthdate"))
-    // Look for "Address" column
     const addressIdx = headers.findIndex(h => h && h.includes("address"))
-    // Look for phone/contact columns (may not exist)
     const phoneIdx = headers.findIndex(h => h && (h.includes("phone") || h.includes("tel") || h.includes("mobile") || h.includes("contact")))
-    // Look for email (may not exist)
     const emailIdx = headers.findIndex(h => h && h.includes("email"))
 
     // Validate required columns
@@ -87,21 +93,16 @@ export async function POST(request: Request) {
 
       const trimmed = fullName.trim()
       
-      // Check if name is in "Last, First Middle" format
       if (trimmed.includes(",")) {
         const parts = trimmed.split(",").map(p => p.trim())
         const lastName = parts[0] || ""
         const firstAndMiddle = parts[1] || ""
-        
-        // Split first and middle name
         const nameParts = firstAndMiddle.split(/\s+/).filter(p => p)
         const firstName = nameParts[0] || ""
         const middleName = nameParts.slice(1).join(" ") || null
-        
         return { lastName, firstName, middleName }
       }
       
-      // If not in "Last, First" format, assume "First Last" format
       const nameParts = trimmed.split(/\s+/).filter(p => p)
       if (nameParts.length >= 2) {
         const firstName = nameParts[0]
@@ -110,9 +111,53 @@ export async function POST(request: Request) {
         return { lastName, firstName, middleName }
       }
       
-      // Single name - use as first name
       return { lastName: "", firstName: trimmed, middleName: null }
     }
+
+    // Helper function to generate unique email
+    function generateUniqueEmail(firstName: string, lastName: string, existingEmails: Set<string>): string {
+      const baseEmail = `${firstName.toLowerCase().replace(/\s+/g, ".")}.${lastName.toLowerCase().replace(/\s+/g, ".")}@soemco.coop`
+
+      // If base email is available, use it
+      if (!existingEmails.has(baseEmail.toLowerCase())) {
+        return baseEmail
+      }
+
+      // Otherwise, add a counter until we find a unique email
+      let counter = 2
+      let uniqueEmail = `${firstName.toLowerCase().replace(/\s+/g, ".")}.${lastName.toLowerCase().replace(/\s+/g, ".")}${counter}@soemco.coop`
+
+      while (existingEmails.has(uniqueEmail.toLowerCase())) {
+        counter++
+        uniqueEmail = `${firstName.toLowerCase().replace(/\s+/g, ".")}.${lastName.toLowerCase().replace(/\s+/g, ".")}${counter}@soemco.coop`
+      }
+
+      return uniqueEmail
+    }
+
+    // ============================================
+    // OPTIMIZATION 1: Fetch all existing data upfront (2 queries total)
+    // ============================================
+    console.log("Fetching existing data for duplicate checking...")
+    
+    const [existingUsers, existingMembers] = await Promise.all([
+      // Fetch all existing emails (for optional duplicate checking)
+      prisma.user.findMany({
+        select: { email: true },
+      }),
+      // Fetch all existing memberIds (primary duplicate checker)
+      prisma.memberProfile.findMany({
+        select: { memberId: true },
+      }),
+    ])
+
+    // ============================================
+    // OPTIMIZATION 2: Create Sets/Maps for fast in-memory lookups
+    // ============================================
+    const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()))
+    const existingMemberIds = new Set(existingMembers.map(m => m.memberId))
+
+    console.log(`Loaded ${existingEmails.size} existing emails, ${existingMemberIds.size} existing memberIds`)
 
     const results = {
       success: 0,
@@ -121,8 +166,11 @@ export async function POST(request: Request) {
       skipped: 0,
     }
 
-    // Process each row starting from line 20 (index 19)
-    // Stop when we encounter summary rows (like "GRAND TOTALS" or rows starting with "Share Capital")
+    // ============================================
+    // STEP 1: Parse and validate all rows (filter duplicates in memory)
+    // ============================================
+    const validMembers: MemberData[] = []
+
     for (let i = dataStartIdx; i < data.length; i++) {
       const row = data[i]
       
@@ -144,7 +192,6 @@ export async function POST(request: Request) {
       }
 
       try {
-        // Get full name and parse it
         const fullName = String(row[nameIdx] || "").trim()
         if (!fullName) {
           results.skipped++
@@ -164,26 +211,24 @@ export async function POST(request: Request) {
         const phoneNumber = phoneIdx !== -1 ? String(row[phoneIdx] || "").trim() || null : null
         const existingMemberId = memberIdIdx !== -1 ? String(row[memberIdIdx] || "").trim() : null
 
-        // Generate email if not provided (use pattern: firstname.lastname@soemco.coop)
-        const finalEmail = email || `${firstName.toLowerCase().replace(/\s+/g, ".")}.${lastName.toLowerCase().replace(/\s+/g, ".")}@soemco.coop`
+        // Generate email if not provided - ensure uniqueness
+        const finalEmail = email || generateUniqueEmail(firstName, lastName, existingEmails)
 
-        // Parse date of birth (format: MM/DD/YYYY)
+        // Parse date of birth
         let dateOfBirth: Date | null = null
         if (dateOfBirthIdx !== -1 && row[dateOfBirthIdx]) {
           const dobValue = row[dateOfBirthIdx]
           if (dobValue instanceof Date) {
             dateOfBirth = dobValue
           } else if (typeof dobValue === "number") {
-            // Excel date serial number - Excel epoch is 1900-01-01
             const excelEpoch = new Date(1899, 11, 30)
             dateOfBirth = new Date(excelEpoch.getTime() + dobValue * 86400000)
           } else {
             const dobString = String(dobValue).trim()
             if (dobString) {
-              // Try parsing MM/DD/YYYY format
               const parts = dobString.split("/")
               if (parts.length === 3) {
-                const month = parseInt(parts[0], 10) - 1 // Month is 0-indexed
+                const month = parseInt(parts[0], 10) - 1
                 const day = parseInt(parts[1], 10)
                 const year = parseInt(parts[2], 10)
                 dateOfBirth = new Date(year, month, day)
@@ -191,7 +236,6 @@ export async function POST(request: Request) {
                   dateOfBirth = null
                 }
               } else {
-                // Try standard date parsing
                 dateOfBirth = new Date(dobString)
                 if (isNaN(dateOfBirth.getTime())) {
                   dateOfBirth = null
@@ -201,56 +245,47 @@ export async function POST(request: Request) {
           }
         }
 
-        // Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-          where: { email: finalEmail },
-        })
-
-        if (existingUser) {
-          results.skipped++
-          continue
+        // OPTIMIZATION 3: Check duplicates in memory (no database queries)
+        // PRIMARY CHECK: Use memberId as the primary duplicate checker
+        let memberId: string
+        
+        if (existingMemberId) {
+          // If memberId exists in Excel file, check if it already exists in database
+          if (existingMemberIds.has(existingMemberId)) {
+            results.skipped++
+            continue
+          }
+          // Use the memberId from Excel if it doesn't exist in database
+          memberId = existingMemberId
+        } else {
+          // Generate a new memberId if not provided in Excel
+          memberId = generateMemberId()
+          // Ensure generated memberId is unique (regenerate if needed)
+          while (existingMemberIds.has(memberId)) {
+            memberId = generateMemberId()
+          }
         }
 
-        // Generate password (default: firstname+lastname+123)
-        const defaultPassword = `${firstName}${lastName}123`
-        const hashedPassword = await bcrypt.hash(defaultPassword, 12)
+        // Note: Email duplicate check removed since we now generate unique emails
+        // Multiple people can have the same name, so we only check email and memberId
+        // The name check was causing legitimate imports to be skipped
 
-        // Use existing memberId or generate new one
-        const memberId = existingMemberId || generateMemberId()
-
-        // Check if memberId already exists
-        const existingMember = await prisma.memberProfile.findUnique({
-          where: { memberId },
+        // Add to valid members list
+        validMembers.push({
+          firstName,
+          lastName,
+          middleName,
+          email: finalEmail,
+          memberId,
+          dateOfBirth,
+          address,
+          phoneNumber,
+          rowNum: i + 1,
         })
 
-        if (existingMember) {
-          results.skipped++
-          continue
-        }
-
-        // Create user and member profile
-        await prisma.user.create({
-          data: {
-            email: finalEmail,
-            password: hashedPassword,
-            name: `${firstName} ${lastName}`,
-            role: UserRole.MEMBER,
-            memberProfile: {
-              create: {
-                memberId,
-                firstName,
-                lastName,
-                middleName,
-                dateOfBirth,
-                address,
-                phoneNumber,
-                status: MemberStatus.ACTIVE,
-              },
-            },
-          },
-        })
-
-        results.success++
+        // Add to existing sets to prevent duplicates within the same import
+        existingEmails.add(finalEmail.toLowerCase())
+        existingMemberIds.add(memberId)
       } catch (error: any) {
         results.failed++
         const rowNum = i + 1
@@ -258,6 +293,114 @@ export async function POST(request: Request) {
         console.error(`Error processing row ${rowNum}:`, error)
       }
     }
+
+    console.log(`Found ${validMembers.length} valid members to import`)
+
+    console.log(JSON.stringify(validMembers))
+
+    // ============================================
+    // OPTIMIZATION 4: Batch password hashing with Promise.all
+    // ============================================
+    console.log("Hashing passwords in parallel...")
+    const BATCH_SIZE = 50
+    const hashedMembers: Array<MemberData & { hashedPassword: string }> = []
+
+    for (let i = 0; i < validMembers.length; i += BATCH_SIZE) {
+      const batch = validMembers.slice(i, i + BATCH_SIZE)
+      
+      // Hash passwords in parallel for this batch
+      const hashPromises = batch.map(member => {
+        const password = `${member.firstName}${member.lastName}123`
+        return bcrypt.hash(password, 12).then(hashedPassword => ({
+          ...member,
+          hashedPassword,
+        }))
+      })
+
+      const batchResults = await Promise.all(hashPromises)
+      hashedMembers.push(...batchResults)
+    }
+
+    console.log(`Hashed passwords for ${hashedMembers.length} members`)
+
+    // ============================================
+    // OPTIMIZATION 5: Batch inserts using Prisma transactions
+    // ============================================
+    console.log("Inserting members in batches...")
+    
+    for (let i = 0; i < hashedMembers.length; i += BATCH_SIZE) {
+      const batch = hashedMembers.slice(i, i + BATCH_SIZE)
+      
+      try {
+        // Use transaction to insert batch (callback form)
+        await prisma.$transaction(async (tx) => {
+          await Promise.all(
+            batch.map(member =>
+              tx.user.create({
+                data: {
+                  email: member.email,
+                  password: member.hashedPassword,
+                  name: `${member.firstName} ${member.lastName}`,
+                  role: UserRole.MEMBER,
+                  memberProfile: {
+                    create: {
+                      memberId: member.memberId,
+                      firstName: member.firstName,
+                      lastName: member.lastName,
+                      middleName: member.middleName,
+                      dateOfBirth: member.dateOfBirth,
+                      address: member.address,
+                      phoneNumber: member.phoneNumber,
+                      status: MemberStatus.ACTIVE,
+                    },
+                  },
+                },
+              })
+            )
+          )
+        })
+
+        results.success += batch.length
+        console.log(`Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} members`)
+      } catch (error: any) {
+        // If batch fails, try individual inserts to identify which member failed
+        console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed, trying individual inserts:`, error)
+        
+        for (const member of batch) {
+          console.log('member.email', member.email);
+          
+          try {
+            await prisma.user.create({
+              data: {
+                email: member.email,
+                password: member.hashedPassword,
+                name: `${member.firstName} ${member.lastName}`,
+                role: UserRole.MEMBER,
+                memberProfile: {
+                  create: {
+                    memberId: member.memberId,
+                    firstName: member.firstName,
+                    lastName: member.lastName,
+                    middleName: member.middleName,
+                    dateOfBirth: member.dateOfBirth,
+                    address: member.address,
+                    phoneNumber: member.phoneNumber,
+                    status: MemberStatus.ACTIVE,
+                  },
+                },
+              },
+            })
+            results.success++
+          } catch (individualError: any) {
+            results.failed++
+            results.errors.push(`Row ${member.rowNum}: ${individualError.message || "Unknown error"}`)
+            console.error(`Error inserting member from row ${member.rowNum}:`, individualError)
+          }
+        }
+      }
+    }
+
+    console.log(`Import completed: ${results.success} created, ${results.failed} failed, ${results.skipped} skipped`)
 
     return NextResponse.json({
       message: `Import completed: ${results.success} members created, ${results.failed} failed, ${results.skipped} skipped`,
