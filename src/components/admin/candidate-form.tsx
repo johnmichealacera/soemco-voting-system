@@ -26,8 +26,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Check, ChevronsUpDown, Search } from "lucide-react"
+import { Check, ChevronsUpDown, Search, Upload, X, Image as ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { uploadToCloudinary } from "@/lib/cloudinary-upload"
+import Image from "next/image"
 
 interface Candidate {
   id: string
@@ -35,6 +37,7 @@ interface Candidate {
   positionId: string
   userId: string
   status: string
+  imageUrl: string | null
   bio: string | null
   qualifications: string | null
   election: {
@@ -171,9 +174,14 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
     positionId: "",
     userId: "",
     status: "pending",
+    imageUrl: "",
     bio: "",
     qualifications: "",
   })
+
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   // Search state for member dropdown
   const [memberSearchOpen, setMemberSearchOpen] = useState(false)
@@ -228,20 +236,26 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
         positionId: candidate.positionId,
         userId: candidate.userId,
         status: candidate.status,
+        imageUrl: candidate.imageUrl || "",
         bio: candidate.bio || "",
         qualifications: candidate.qualifications || "",
       })
       setSelectedElectionId(candidate.electionId)
+      setImagePreview(candidate.imageUrl || null)
+      setImageFile(null)
     } else {
       setFormData({
         electionId: "",
         positionId: "",
         userId: "",
         status: "pending",
+        imageUrl: "",
         bio: "",
         qualifications: "",
       })
       setSelectedElectionId("")
+      setImagePreview(null)
+      setImageFile(null)
     }
   }, [candidate, open])
 
@@ -266,6 +280,67 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
       setMemberSearchQuery("")
     }
   }, [open])
+
+  // Handle image file selection
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB')
+      return
+    }
+
+    setImageFile(file)
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+
+    // Upload to Cloudinary
+    setIsUploadingImage(true)
+    try {
+      const cloudinaryUrl = process.env.NEXT_PUBLIC_CLOUDINARY_URL || ''
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || ''
+      const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || ''
+
+      if (!cloudinaryUrl || !uploadPreset) {
+        throw new Error('Cloudinary configuration is missing')
+      }
+
+      const result = await uploadToCloudinary(file, {
+        cloudinaryUrl,
+        uploadPreset,
+        apiKey,
+      })
+
+      setFormData((prev) => ({ ...prev, imageUrl: result.url }))
+      toast.success('Image uploaded successfully')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload image')
+      setImageFile(null)
+      setImagePreview(null)
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
+  // Handle image removal
+  const handleRemoveImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    setFormData((prev) => ({ ...prev, imageUrl: "" }))
+  }
 
   const createMutation = useMutation({
     mutationFn: createCandidate,
@@ -296,6 +371,7 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
 
     const data: any = {
       status: formData.status,
+      imageUrl: formData.imageUrl && formData.imageUrl.trim() !== "" ? formData.imageUrl : null,
       bio: formData.bio || null,
       qualifications: formData.qualifications || null,
     }
@@ -480,6 +556,68 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
                 </p>
               </div>
             )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="imageUrl">Candidate Photo</Label>
+              <div className="space-y-4">
+                {imagePreview ? (
+                  <div className="relative inline-block">
+                    <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
+                      <Image
+                        src={imagePreview}
+                        alt="Candidate photo"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                      onClick={handleRemoveImage}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center w-full">
+                    <Label
+                      htmlFor="image-upload"
+                      className={cn(
+                        "flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors",
+                        isUploadingImage && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        {isUploadingImage ? (
+                          <>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                            <p className="text-sm text-gray-500">Uploading...</p>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-8 h-8 mb-2 text-gray-400" />
+                            <p className="mb-2 text-sm text-gray-500">
+                              <span className="font-semibold">Click to upload</span> candidate photo
+                            </p>
+                            <p className="text-xs text-gray-500">PNG, JPG, WEBP (MAX. 5MB)</p>
+                          </>
+                        )}
+                      </div>
+                      <Input
+                        id="image-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageChange}
+                        disabled={isUploadingImage}
+                      />
+                    </Label>
+                  </div>
+                )}
+              </div>
+            </div>
 
             <div className="grid gap-2">
               <Label htmlFor="status">Status</Label>

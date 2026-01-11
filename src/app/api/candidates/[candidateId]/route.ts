@@ -82,7 +82,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { status, bio, qualifications } = body
+    const { status, imageUrl, bio, qualifications } = body
 
     const candidate = await prisma.candidate.findUnique({
       where: { id: candidateId },
@@ -94,6 +94,7 @@ export async function PUT(
 
     const updateData: any = {}
     if (status) updateData.status = status
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl || null
     if (bio !== undefined) updateData.bio = bio || null
     if (qualifications !== undefined) updateData.qualifications = qualifications || null
 

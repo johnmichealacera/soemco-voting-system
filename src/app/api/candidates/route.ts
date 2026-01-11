@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { electionId, positionId, userId, status, bio, qualifications, nominationDate } = body
+    const { electionId, positionId, userId, status, imageUrl, bio, qualifications, nominationDate } = body
 
     // Validate required fields
     if (!electionId || !positionId || !userId) {
@@ -148,6 +148,7 @@ export async function POST(request: Request) {
         positionId,
         userId,
         status: status || "pending",
+        imageUrl: imageUrl || null,
         bio: bio || null,
         qualifications: qualifications || null,
         nominationDate: nominationDate ? new Date(nominationDate) : new Date(),

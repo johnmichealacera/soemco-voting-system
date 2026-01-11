@@ -197,6 +197,7 @@ model Candidate {
   userId            String
   nominationDate      DateTime @default(now())
   status            String   @default("pending") // pending, approved, rejected, withdrawn
+  imageUrl          String?  // URL to candidate image/photo
   bio               String?  @db.Text
   qualifications    String?  @db.Text
   createdAt         DateTime @default(now())

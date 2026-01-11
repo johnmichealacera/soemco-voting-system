@@ -28,6 +28,7 @@ interface Candidate {
   electionId: string
   positionId: string
   userId: string
+  imageUrl: string | null
   nominationDate: Date | string
   status: string
   bio: string | null
