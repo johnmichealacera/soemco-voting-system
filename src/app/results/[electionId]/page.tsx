@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
 import { User, TrendingUp, Users, BarChart3, Award, Briefcase } from "lucide-react"
-import { useRef, useCallback, useState, useEffect } from "react"
+import { useRef, useCallback, useState, useEffect, useMemo } from "react"
 
 async function getElectionResults(electionId: string) {
   const res = await fetch(`/api/elections/${electionId}/results`)
@@ -71,8 +71,11 @@ export default function ElectionResultsPage() {
     refetchInterval: 5000, // Refresh every 5 seconds for live updates
   })
 
+  // Memoize results to prevent unnecessary re-renders
+  const memoizedResults = useMemo(() => data?.results || [], [data?.results])
+
   // Animation hook for ranking changes
-  const animations = useRankingAnimation(data?.results || [])
+  const animations = useRankingAnimation(memoizedResults)
 
   if (isLoading) {
     return (

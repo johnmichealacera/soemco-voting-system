@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Image from "next/image"
 import { User, TrendingUp, Users, BarChart3, Award, Briefcase, RefreshCw, Building2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useEffect, Suspense, useRef, useCallback } from "react"
+import { useState, useEffect, Suspense, useRef, useCallback, useMemo } from "react"
 import {
   Select,
   SelectContent,
@@ -119,8 +119,11 @@ function ResultsContent() {
     refetchInterval: 5000, // Refresh every 5 seconds for live updates
   })
 
+  // Memoize results to prevent unnecessary re-renders
+  const memoizedResults = useMemo(() => resultsData?.results || [], [resultsData?.results])
+
   // Animation hook for ranking changes
-  const animations = useRankingAnimation(resultsData?.results || [])
+  const animations = useRankingAnimation(memoizedResults)
 
   const handleElectionChange = (electionId: string) => {
     setSelectedElectionId(electionId)

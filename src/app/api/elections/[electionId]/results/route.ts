@@ -178,17 +178,27 @@ export async function GET(
     // Build results structure
     const results = election.positions.map((position) => {
       const totalVotes = positionVoteCounts[position.id] || 0
-      const candidates = position.candidates.map((candidate, index) => {
+
+      // First pass: get vote counts and branch breakdown
+      const candidatesWithData: Array<{
+        id: string
+        userId: string
+        user: any
+        imageUrl: string | null
+        bio: string | null
+        qualifications: string | null
+        voteCount: number
+        percentage: number
+        branchBreakdown: Array<{
+          branchId: string
+          branchName: string
+          branchCode: string
+          votes: number
+        }>
+      }> = position.candidates.map((candidate, index) => {
         const key = `${position.id}-${candidate.id}`
         const voteCount = voteCounts[key] || 0
         const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0
-
-        // Determine if we should show real name or anonymous name
-        // Show real names only when election is NOT anonymous
-        const shouldShowRealName = !election.isAnonymous
-        const displayName = shouldShowRealName
-          ? (candidate.user?.name || candidate.user?.email || "Unknown")
-          : getAnonymousName(index)
 
         // Get branch breakdown for this candidate
         const branchVotes = candidateBranchVotes[key] || {}
@@ -208,11 +218,10 @@ export async function GET(
         return {
           id: candidate.id,
           userId: candidate.userId,
-          name: displayName,
-          email: shouldShowRealName ? (candidate.user?.email || "") : "",
+          user: candidate.user,
           imageUrl: candidate.imageUrl,
-          bio: shouldShowRealName ? candidate.bio : null, // Hide bio when anonymous
-          qualifications: shouldShowRealName ? candidate.qualifications : null, // Hide qualifications when anonymous
+          bio: candidate.bio,
+          qualifications: candidate.qualifications,
           voteCount,
           percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
           branchBreakdown, // Add branch breakdown
@@ -220,7 +229,46 @@ export async function GET(
       })
 
       // Sort candidates by vote count (descending)
-      candidates.sort((a, b) => b.voteCount - a.voteCount)
+      candidatesWithData.sort((a, b) => b.voteCount - a.voteCount)
+
+      // Second pass: assign names based on sorted order
+      const candidates: Array<{
+        id: string
+        userId: string
+        name: string
+        email: string
+        imageUrl: string | null
+        bio: string | null
+        qualifications: string | null
+        voteCount: number
+        percentage: number
+        branchBreakdown: Array<{
+          branchId: string
+          branchName: string
+          branchCode: string
+          votes: number
+        }>
+      }> = candidatesWithData.map((candidate, sortedIndex) => {
+        // Determine if we should show real name or anonymous name
+        // Show real names only when election is NOT anonymous
+        const shouldShowRealName = !election.isAnonymous
+        const displayName = shouldShowRealName
+          ? (candidate.user?.name || candidate.user?.email || "Unknown")
+          : getAnonymousName(sortedIndex)
+
+        return {
+          id: candidate.id,
+          userId: candidate.userId,
+          name: displayName,
+          email: shouldShowRealName ? (candidate.user?.email || "") : "",
+          imageUrl: shouldShowRealName ? candidate.imageUrl : null,
+          bio: shouldShowRealName ? candidate.bio : null, // Hide bio when anonymous
+          qualifications: shouldShowRealName ? candidate.qualifications : null, // Hide qualifications when anonymous
+          voteCount: candidate.voteCount,
+          percentage: candidate.percentage,
+          branchBreakdown: candidate.branchBreakdown,
+        }
+      })
 
       return {
         id: position.id,
