@@ -16,8 +16,8 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only ADMIN can view member details
-    if (session.user.role !== UserRole.ADMIN) {
+    // Only ADMIN and BRANCH_MANAGER can view member details
+    if (![UserRole.ADMIN, UserRole.BRANCH_MANAGER].includes(session.user.role as any)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -66,8 +66,8 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only ADMIN can update members
-    if (session.user.role !== UserRole.ADMIN) {
+    // Only ADMIN and BRANCH_MANAGER can update members
+    if (![UserRole.ADMIN, UserRole.BRANCH_MANAGER].includes(session.user.role as any)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -185,8 +185,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only ADMIN can delete members
-    if (session.user.role !== UserRole.ADMIN) {
+    // Only ADMIN and BRANCH_MANAGER can delete members
+    if (![UserRole.ADMIN, UserRole.BRANCH_MANAGER].includes(session.user.role as any)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { MemberStatus } from "@prisma/client"
+import { MemberStatus, UserRole } from "@prisma/client"
 import { formatDate, formatDateTime } from "@/lib/utils"
 import {
   Table,
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle, UserMinus, Users, Search, Filter } from "lucide-react"
+import { MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle, UserMinus, Users, Search, Filter, Building2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { MemberForm } from "./member-form"
@@ -74,7 +74,8 @@ async function fetchMembers(
   page: number = 1,
   pageSize: number = 10,
   search: string = "",
-  status: string = ""
+  status: string = "",
+  role: string = ""
 ): Promise<MembersResponse> {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -82,6 +83,7 @@ async function fetchMembers(
   })
   if (search) params.append("search", search)
   if (status) params.append("status", status)
+  if (role) params.append("role", role)
 
   const res = await fetch(`/api/members?${params.toString()}`)
   if (!res.ok) throw new Error("Failed to fetch members")
@@ -138,6 +140,32 @@ async function bulkDeleteMembers(memberIds: string[]) {
   return res.json()
 }
 
+async function updateUserRole(userId: string, role: UserRole) {
+  const res = await fetch(`/api/users/${userId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to update user role")
+  }
+  return res.json()
+}
+
+async function bulkUpdateUserRoles(userIds: string[], role: UserRole) {
+  const res = await fetch("/api/users/bulk", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userIds, role }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to update user roles")
+  }
+  return res.json()
+}
+
 function getStatusBadge(status: MemberStatus) {
   const statusConfig = {
     [MemberStatus.ACTIVE]: {
@@ -178,11 +206,12 @@ export function MembersTable() {
   const [pageSize, setPageSize] = useState(10)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("")
+  const [roleFilter, setRoleFilter] = useState<string>("")
   const [searchInput, setSearchInput] = useState("")
 
   const { data: response, isLoading } = useQuery({
-    queryKey: ["members", page, pageSize, search, statusFilter],
-    queryFn: () => fetchMembers(page, pageSize, search, statusFilter),
+    queryKey: ["members", page, pageSize, search, statusFilter, roleFilter],
+    queryFn: () => fetchMembers(page, pageSize, search, statusFilter, roleFilter),
   })
 
   const members = response?.members || []
@@ -241,6 +270,31 @@ export function MembersTable() {
     },
   })
 
+  const roleMutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: UserRole }) =>
+      updateUserRole(userId, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] })
+      toast.success("User role updated successfully")
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const bulkRoleMutation = useMutation({
+    mutationFn: ({ userIds, role }: { userIds: string[]; role: UserRole }) =>
+      bulkUpdateUserRoles(userIds, role),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["members"] })
+      setSelectedMembers(new Set())
+      toast.success(data.message || "User roles updated successfully")
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
   const handleEdit = (member: Member) => {
     setEditingMember(member)
     setIsFormOpen(true)
@@ -254,6 +308,12 @@ export function MembersTable() {
 
   const handleStatusChange = (id: string, status: MemberStatus) => {
     statusMutation.mutate({ id, status })
+  }
+
+  const handleSetAsBranchManager = (userId: string) => {
+    if (confirm("Are you sure you want to set this user as a Branch Manager?")) {
+      roleMutation.mutate({ userId, role: UserRole.BRANCH_MANAGER })
+    }
   }
 
   const handleFormClose = () => {
@@ -312,6 +372,23 @@ export function MembersTable() {
     }
   }
 
+  const handleBulkSetAsBranchManager = () => {
+    if (selectedMembers.size === 0) {
+      toast.error("Please select at least one member")
+      return
+    }
+
+    const memberIds = Array.from(selectedMembers)
+    // Get user IDs from selected members
+    const userIds = members
+      .filter(member => selectedMembers.has(member.id))
+      .map(member => member.user.id)
+
+    if (confirm(`Are you sure you want to set ${userIds.length} user(s) as Branch Managers?`)) {
+      bulkRoleMutation.mutate({ userIds, role: UserRole.BRANCH_MANAGER })
+    }
+  }
+
   const allSelected = members && members.length > 0 && selectedMembers.size === members.length
   const someSelected = selectedMembers.size > 0 && selectedMembers.size < (members?.length || 0)
 
@@ -324,6 +401,12 @@ export function MembersTable() {
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value)
+    setPage(1) // Reset to first page on filter change
+    setSelectedMembers(new Set()) // Clear selection on filter change
+  }
+
+  const handleRoleFilterChange = (value: string) => {
+    setRoleFilter(value)
     setPage(1) // Reset to first page on filter change
     setSelectedMembers(new Set()) // Clear selection on filter change
   }
@@ -344,6 +427,7 @@ export function MembersTable() {
     setSearchInput("")
     setSearch("")
     setStatusFilter("")
+    setRoleFilter("")
     setPage(1)
     setSelectedMembers(new Set())
   }
@@ -363,7 +447,7 @@ export function MembersTable() {
         <div className="flex items-center gap-2 mb-4">
           <Filter className="h-4 w-4 text-gray-600" />
           <h3 className="font-semibold" style={{ color: '#2c3e50' }}>Filters</h3>
-          {(search || statusFilter) && (
+          {(search || statusFilter || roleFilter) && (
             <Button
               variant="ghost"
               size="sm"
@@ -375,7 +459,7 @@ export function MembersTable() {
           )}
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="space-y-2">
             <Label htmlFor="search">Search</Label>
             <form onSubmit={handleSearch} className="flex gap-2">
@@ -404,6 +488,21 @@ export function MembersTable() {
                 <SelectItem value={MemberStatus.INACTIVE}>Inactive</SelectItem>
                 <SelectItem value={MemberStatus.SUSPENDED}>Suspended</SelectItem>
                 <SelectItem value={MemberStatus.PENDING_VERIFICATION}>Pending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="role">Role</Label>
+            <Select value={roleFilter} onValueChange={handleRoleFilterChange}>
+              <SelectTrigger id="role">
+                <SelectValue placeholder="All roles" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All roles</SelectItem>
+                <SelectItem value={UserRole.MEMBER}>Member</SelectItem>
+                <SelectItem value={UserRole.BRANCH_MANAGER}>Branch Manager</SelectItem>
+                <SelectItem value={UserRole.ADMIN}>Administrator</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -446,7 +545,7 @@ export function MembersTable() {
                 variant="default"
                 size="sm"
                 style={{ backgroundColor: '#3498db' }}
-                disabled={bulkUpdateMutation.isPending || bulkDeleteMutation.isPending}
+                disabled={bulkUpdateMutation.isPending || bulkDeleteMutation.isPending || bulkRoleMutation.isPending}
               >
                 <Users className="mr-2 h-4 w-4" />
                 Bulk Actions
@@ -476,6 +575,13 @@ export function MembersTable() {
                 onClick={() => handleBulkStatusChange(MemberStatus.PENDING_VERIFICATION)}
               >
                 Set to Pending
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleBulkSetAsBranchManager}
+              >
+                <Building2 className="mr-2 h-4 w-4" />
+                Set as Branch Manager
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -593,6 +699,14 @@ export function MembersTable() {
                           >
                             <XCircle className="mr-2 h-4 w-4" />
                             Suspend
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleSetAsBranchManager(member.user.id)}
+                            disabled={member.user.role === UserRole.BRANCH_MANAGER}
+                          >
+                            <Building2 className="mr-2 h-4 w-4" />
+                            Set as Branch Manager
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDelete(member.id)}

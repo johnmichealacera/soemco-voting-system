@@ -26,8 +26,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only ADMIN can import members
-    if (session.user.role !== UserRole.ADMIN) {
+    // Only ADMIN and BRANCH_MANAGER can import members
+    if (![UserRole.ADMIN, UserRole.BRANCH_MANAGER].includes(session.user.role as any)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

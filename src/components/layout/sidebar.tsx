@@ -43,6 +43,10 @@ const menuItems = {
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/profile", label: "Profile", icon: UserCircle },
   ],
+  [UserRole.BRANCH_MANAGER]: [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admin/members", label: "Members", icon: UserCircle },
+  ],
   [UserRole.ADMIN]: [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/elections", label: "Elections", icon: Vote },
@@ -53,7 +57,7 @@ const menuItems = {
     // { href: "/admin/system", label: "System Config", icon: Settings },
     // { href: "/admin/audit", label: "Audit Logs", icon: FileText },
     // { href: "/reports", label: "Reports", icon: BarChart3 },
-    // { href: "/profile", label: "Profile", icon: UserCircle },
+    { href: "/profile", label: "Profile", icon: UserCircle },
   ],
 }
 

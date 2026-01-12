@@ -13,8 +13,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only ADMIN can view all members
-    if (session.user.role !== UserRole.ADMIN) {
+    // Only ADMIN and BRANCH_MANAGER can view all members
+    if (![UserRole.ADMIN, UserRole.BRANCH_MANAGER].includes(session.user.role as any)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -23,6 +23,7 @@ export async function GET(request: Request) {
     const pageSize = parseInt(searchParams.get("pageSize") || "10")
     const search = searchParams.get("search") || ""
     const status = searchParams.get("status") || ""
+    const role = searchParams.get("role") || ""
 
     // Build where clause
     const where: any = {}
@@ -30,6 +31,13 @@ export async function GET(request: Request) {
     // Filter by status
     if (status && Object.values(MemberStatus).includes(status as MemberStatus)) {
       where.status = status as MemberStatus
+    }
+
+    // Filter by role
+    if (role && Object.values(UserRole).includes(role as UserRole)) {
+      where.user = {
+        role: role as UserRole
+      }
     }
 
     // Search filter (search in memberId, firstName, lastName, email)
@@ -109,8 +117,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only ADMIN can create members
-    if (session.user.role !== UserRole.ADMIN) {
+    // Only ADMIN and BRANCH_MANAGER can create members
+    if (![UserRole.ADMIN, UserRole.BRANCH_MANAGER].includes(session.user.role as any)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     // }
 
     // Only ADMIN can perform cleanup operations
+    // Only ADMIN can perform cleanup operations
     // if (session.user.role !== UserRole.ADMIN) {
     //   return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     // }

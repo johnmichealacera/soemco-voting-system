@@ -12,7 +12,7 @@ export async function PUT(request: Request) {
     }
 
     // Only ADMIN can perform bulk operations
-    if (session.user.role !== UserRole.ADMIN) {
+    if (![UserRole.ADMIN, UserRole.BRANCH_MANAGER].includes(session.user.role as any)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -66,7 +66,7 @@ export async function DELETE(request: Request) {
     }
 
     // Only ADMIN can perform bulk operations
-    if (session.user.role !== UserRole.ADMIN) {
+    if (![UserRole.ADMIN, UserRole.BRANCH_MANAGER].includes(session.user.role as any)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

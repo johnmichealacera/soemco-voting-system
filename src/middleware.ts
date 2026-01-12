@@ -7,9 +7,17 @@ export default withAuth(
     const token = req.nextauth.token
     const path = req.nextUrl.pathname
 
-    // Admin routes
-    if (path.startsWith("/admin") && token?.role !== UserRole.ADMIN) {
-      return NextResponse.redirect(new URL("/dashboard", req.url))
+    // Admin routes - full access for ADMIN, restricted access for BRANCH_MANAGER
+    if (path.startsWith("/admin")) {
+      if (token?.role === UserRole.BRANCH_MANAGER) {
+        // Branch Managers can only access members page
+        if (!path.startsWith("/admin/members")) {
+          return NextResponse.redirect(new URL("/dashboard", req.url))
+        }
+      } else if (token?.role !== UserRole.ADMIN) {
+        // Only ADMIN and BRANCH_MANAGER can access admin routes
+        return NextResponse.redirect(new URL("/dashboard", req.url))
+      }
     }
 
     // Election Committee routes

@@ -56,12 +56,12 @@ const roles = [
   // },
   {
     id: "ADMIN" as UserRole,
-    name: "Administrator",
-    description: "System Administrator",
+    name: "SOEMCO LOGIN",
+    description: "Administrative & Branch Manager Access",
     icon: Settings,
     color: "bg-red-500",
     gradient: "from-red-500 to-red-700",
-    features: ["User Management", "System Config", "Full Access"],
+    features: ["Administrative Access", "Branch Management", "System Operations"],
   },
 ]
 
@@ -71,10 +71,11 @@ export function RoleSelection() {
   const selectRole = (role: UserRole) => {
     // Store selected role in sessionStorage
     sessionStorage.setItem("selectedRole", role)
-    // Redirect to kiosk login for MEMBER role, otherwise sign-in
+    // Redirect to kiosk login for MEMBER role, otherwise sign-in for all authenticated users
     if (role === "MEMBER") {
       router.push("/auth/kiosk")
     } else {
+      // SOEMCO LOGIN for ADMIN, BRANCH_MANAGER, and other authenticated users
       router.push("/auth/signin")
     }
   }
@@ -90,10 +91,10 @@ export function RoleSelection() {
             SOEMCO Voting System
           </h1>
           <p className="text-xl md:text-2xl text-slate-600 mb-3 font-medium">
-            Choose your access type to continue
+            Choose your access method
           </p>
           <p className="text-sm md:text-base text-slate-500 max-w-2xl mx-auto">
-            Select Voting Kiosk for members or Administrator for system management
+            Select Voting Kiosk for members or SOEMCO LOGIN for administrative access
           </p>
         </div>
 

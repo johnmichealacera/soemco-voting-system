@@ -7,6 +7,7 @@ import { MemberDashboard } from "@/components/dashboard/member-dashboard"
 import { BoardDashboard } from "@/components/dashboard/board-dashboard"
 import { CommitteeDashboard } from "@/components/dashboard/committee-dashboard"
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard"
+import { BranchManagerDashboard } from "@/components/dashboard/branch-manager-dashboard"
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
@@ -19,6 +20,8 @@ export default async function DashboardPage() {
     switch (session.user.role) {
       case UserRole.ADMIN:
         return <AdminDashboard />
+      case UserRole.BRANCH_MANAGER:
+        return <BranchManagerDashboard />
       case UserRole.ELECTION_COMMITTEE:
         return <CommitteeDashboard />
       case UserRole.BOARD_MEMBER:

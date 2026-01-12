@@ -17,6 +17,7 @@ async function main() {
   // Hash passwords
   const memberPassword = await bcrypt.hash('member123', 12)
   const adminPassword = await bcrypt.hash('admin123', 12)
+  const branchManagerPassword = await bcrypt.hash('manager123', 12)
 
   // Create Member Account
   const member = await prisma.user.upsert({
@@ -72,12 +73,44 @@ async function main() {
 
   console.log('✅ Created Admin account:', admin.email)
 
+  // Create Branch Manager Account
+  const branchManager = await prisma.user.upsert({
+    where: { email: 'manager@soemco.com' },
+    update: {},
+    create: {
+      email: 'manager@soemco.com',
+      password: branchManagerPassword,
+      name: 'Branch Manager',
+      role: UserRole.BRANCH_MANAGER,
+      memberProfile: {
+        create: {
+          memberId: generateMemberId(),
+          firstName: 'Branch',
+          lastName: 'Manager',
+          status: MemberStatus.ACTIVE,
+          address: 'Branch Office',
+          phoneNumber: '+63 912 345 6781',
+        },
+      },
+    },
+    include: {
+      memberProfile: true,
+    },
+  })
+
+  console.log('✅ Created Branch Manager account:', branchManager.email)
+
   console.log('\n📋 Test Accounts Created:')
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('👤 MEMBER ACCOUNT:')
   console.log('   Email: member@soemco.com')
   console.log('   Password: member123')
   console.log('   Role: Member')
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('🏢 BRANCH MANAGER ACCOUNT:')
+  console.log('   Email: manager@soemco.com')
+  console.log('   Password: manager123')
+  console.log('   Role: Branch Manager')
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('🔐 ADMIN ACCOUNT:')
   console.log('   Email: admin@soemco.com')

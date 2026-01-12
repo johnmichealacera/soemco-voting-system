@@ -27,6 +27,7 @@ const roleLabels: Record<UserRole, string> = {
   BOARD_MEMBER: "Board Member",
   ELECTION_COMMITTEE: "Election Committee",
   ADMIN: "Administrator",
+  BRANCH_MANAGER: "Branch Manager",
 }
 
 export default function SignInPage() {
