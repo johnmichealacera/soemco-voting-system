@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -13,7 +13,15 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Building2 } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 interface MemberImportDialogProps {
   open: boolean
@@ -30,9 +38,12 @@ interface ImportResult {
   }
 }
 
-async function importMembers(file: File): Promise<ImportResult> {
+async function importMembers(file: File, branchId?: string): Promise<ImportResult> {
   const formData = new FormData()
   formData.append("file", file)
+  if (branchId) {
+    formData.append("branchId", branchId)
+  }
 
   const res = await fetch("/api/members/import", {
     method: "POST",
@@ -47,14 +58,29 @@ async function importMembers(file: File): Promise<ImportResult> {
   return res.json()
 }
 
+async function fetchBranches() {
+  const res = await fetch("/api/branches")
+  if (!res.ok) throw new Error("Failed to fetch branches")
+  return res.json()
+}
+
 export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
   const queryClient = useQueryClient()
+  const { data: session } = useSession()
   const [file, setFile] = useState<File | null>(null)
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("none")
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
+  const { data: branches } = useQuery({
+    queryKey: ["branches"],
+    queryFn: fetchBranches,
+    enabled: open && session?.user?.role === "ADMIN",
+  })
+
   const importMutation = useMutation({
-    mutationFn: importMembers,
+    mutationFn: ({ file, branchId }: { file: File; branchId?: string }) =>
+      importMembers(file, branchId),
     onSuccess: (data) => {
       setImportResult(data)
       queryClient.invalidateQueries({ queryKey: ["members"] })
@@ -110,7 +136,11 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
       return
     }
 
-    importMutation.mutate(file)
+    const branchId = session?.user?.role === "ADMIN" && selectedBranchId !== "none"
+      ? selectedBranchId
+      : undefined
+
+    importMutation.mutate({ file, branchId })
   }
 
   const handleClose = () => {
@@ -123,8 +153,8 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle style={{ color: '#2c3e50' }}>
             Import Members from Excel
           </DialogTitle>
@@ -133,9 +163,37 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto">
+          <div className="space-y-4 py-4">
           {!importResult ? (
             <>
+              {session?.user?.role === "ADMIN" && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 className="h-4 w-4 text-blue-600" />
+                    <Label className="text-sm font-semibold" style={{ color: '#2c3e50' }}>
+                      Branch Assignment
+                    </Label>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Choose which branch to assign all imported members to, or select &quot;No branch assignment&quot; to use branch data from the Excel file.
+                  </p>
+                  <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select branch assignment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No branch assignment (use Excel data)</SelectItem>
+                      {branches?.map((branch: any) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name} ({branch.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                   isDragging
@@ -236,7 +294,7 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
                         </p>
                       </div>
                       <div>
-                        <p className="text-gray-600">Skipped:</p>
+                        <p className="text-gray-600">Duplicate:</p>
                         <p className="font-semibold text-gray-600">
                           {importResult.results.skipped}
                         </p>
@@ -265,9 +323,10 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
               )}
             </div>
           )}
+          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           {importResult ? (
             <Button onClick={handleClose} style={{ backgroundColor: '#3498db' }}>
               Close

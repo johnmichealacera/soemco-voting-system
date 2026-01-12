@@ -67,7 +67,11 @@ export async function GET(request: Request) {
 
     // Filter by branch
     if (branch && branch !== "All") {
-      where.branchId = branch
+      if (branch === "unassigned") {
+        where.branchId = null
+      } else {
+        where.branchId = branch
+      }
     }
 
     // Search filter (search in memberId, firstName, lastName, email)

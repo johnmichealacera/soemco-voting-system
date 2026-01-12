@@ -574,6 +574,7 @@ export function MembersTable() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="All">All branches</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {branches?.map((branch: any) => (
                     <SelectItem key={branch.id} value={branch.id}>
                       {branch.name} ({branch.code})

@@ -32,8 +32,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
+    // For branch managers, get their assigned branch for auto-assignment
+    let branchManagerBranchId: string | null = null
+    if (session.user.role === UserRole.BRANCH_MANAGER) {
+      const managerBranch = await prisma.branch.findFirst({
+        where: { managerId: session.user.id },
+        select: { id: true, name: true }
+      })
+
+      if (!managerBranch) {
+        return NextResponse.json({
+          error: "You are not assigned to any branch. Please contact an administrator."
+        }, { status: 403 })
+      }
+
+      branchManagerBranchId = managerBranch.id
+      console.log(`Branch manager importing to branch: ${managerBranch.name} (${managerBranch.id})`)
+    }
+
     const formData = await request.formData()
     const file = formData.get("file") as File
+    const adminSelectedBranchId = formData.get("branchId") as string | null
 
     if (!file) {
       return NextResponse.json(
@@ -259,13 +278,27 @@ export async function POST(request: Request) {
           }
         }
 
-        // Resolve branch ID from branch name/code
+        // Resolve branch ID from branch name/code, auto-assign for branch managers, or use admin selection
         let branchId: string | null = null
-        if (branchName) {
-          branchId = branchMap.get(branchName.toLowerCase()) || null
-          if (!branchId) {
-            console.log(`Branch "${branchName}" not found, member will be imported without branch assignment`)
+
+        if (session.user.role === UserRole.BRANCH_MANAGER) {
+          // Branch managers: auto-assign all members to their branch
+          branchId = branchManagerBranchId
+        } else if (adminSelectedBranchId && adminSelectedBranchId !== "none") {
+          // Admin selected a specific branch for all members
+          branchId = adminSelectedBranchId
+        } else {
+          // Admins without specific selection: try to match branch from Excel file
+          if (branchName) {
+            branchId = branchMap.get(branchName.toLowerCase()) || null
+            if (!branchId) {
+              console.log(`Branch "${branchName}" not found, member will be imported without branch assignment`)
+            }
           }
+        }
+
+        if (branchId) {
+          console.log(`Member ${firstName} ${lastName} assigned to branch ID: ${branchId}`)
         }
 
         // OPTIMIZATION 3: Check duplicates in memory (no database queries)
@@ -429,7 +462,7 @@ export async function POST(request: Request) {
     console.log(`Import completed: ${results.success} created, ${results.failed} failed, ${results.skipped} skipped`)
 
     return NextResponse.json({
-      message: `Import completed: ${results.success} members created, ${results.failed} failed, ${results.skipped} skipped`,
+      message: `Import completed: ${results.success} members created, ${results.failed} failed, ${results.skipped} duplicate`,
       results,
     })
   } catch (error: any) {
