@@ -19,7 +19,7 @@ export default function ElectionResultsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["election-results", electionId],
     queryFn: () => getElectionResults(electionId),
-    refetchInterval: 30000, // Refresh every 30 seconds for live updates
+    refetchInterval: 5000, // Refresh every 5 seconds for live updates
   })
 
   if (isLoading) {

@@ -33,7 +33,7 @@ function ResultsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const electionIdParam = searchParams.get("electionId")
-  
+
   const { data: elections, isLoading: electionsLoading } = useQuery({
     queryKey: ["elections"],
     queryFn: getElections,
@@ -68,7 +68,7 @@ function ResultsContent() {
     queryKey: ["election-results", selectedElectionId],
     queryFn: () => getElectionResults(selectedElectionId!),
     enabled: !!selectedElectionId,
-    refetchInterval: 30000, // Refresh every 30 seconds for live updates
+    refetchInterval: 5000, // Refresh every 5 seconds for live updates
   })
 
   const handleElectionChange = (electionId: string) => {
@@ -127,7 +127,7 @@ function ResultsContent() {
     )
   }
 
-  const { election, results, summary } = resultsData
+  const { election, results, summary, anonymity } = resultsData
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
@@ -181,6 +181,7 @@ function ResultsContent() {
             </p>
           )}
           <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3">
             <div className="flex items-center justify-center gap-6 text-sm text-gray-500">
               <span>
                 Status:{" "}
@@ -189,11 +190,26 @@ function ResultsContent() {
                 </span>
               </span>
             </div>
+            {anonymity?.isEnabled && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 border border-orange-200">
+                <span className="text-sm font-medium text-orange-700">
+                  🔒 Results are anonymous - Only admins can reveal candidate identities
+                </span>
+              </div>
+            )}
+            {!anonymity?.isEnabled && anonymity?.canReveal && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 border border-green-200">
+                <span className="text-sm font-medium text-green-700">
+                  ✅ Anonymity revealed - Candidate identities are now visible
+                </span>
+              </div>
+            )}
+          </div>
             {/* Live Update Indicator */}
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 border border-green-200">
               <RefreshCw className="w-4 h-4 text-green-600 animate-spin" style={{ animationDuration: '2s' }} />
               <span className="text-sm font-medium text-green-700">
-                Live Results - Auto-updating every 30 seconds
+                Live Results - Auto-updating every 5 seconds
               </span>
             </div>
           </div>

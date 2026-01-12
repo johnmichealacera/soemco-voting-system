@@ -173,6 +173,7 @@ model Election {
   electionType          String        // Board Elections, Officer Elections, Special Votes
   status                ElectionStatus @default(DRAFT)
   voteType              VoteType      @default(SINGLE_CHOICE)
+  isAnonymous           Boolean       @default(true) // Whether to show anonymous results
   votingStartDate       DateTime
   votingEndDate         DateTime
   nominationStartDate   DateTime?

@@ -71,6 +71,7 @@ export async function POST(request: Request) {
       description,
       electionType,
       voteType,
+      isAnonymous,
       votingStartDate,
       votingEndDate,
       nominationStartDate,
@@ -92,6 +93,7 @@ export async function POST(request: Request) {
         description,
         electionType,
         voteType: voteType || "SINGLE_CHOICE",
+        isAnonymous: isAnonymous !== undefined ? isAnonymous : true, // Default to anonymous
         votingStartDate: new Date(votingStartDate),
         votingEndDate: new Date(votingEndDate),
         nominationStartDate: nominationStartDate

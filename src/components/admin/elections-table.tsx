@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle } from "lucide-react"
+import { MoreHorizontal, Edit, Trash2, Eye, EyeOff, CheckCircle, XCircle } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { ElectionForm } from "./election-form"
@@ -31,6 +31,7 @@ interface Election {
   electionType: string
   status: ElectionStatus
   voteType: VoteType
+  isAnonymous: boolean
   votingStartDate: Date | string
   votingEndDate: Date | string
   nominationStartDate: Date | string | null
@@ -68,6 +69,19 @@ async function updateElectionStatus(id: string, status: ElectionStatus) {
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.error || "Failed to update election status")
+  }
+  return res.json()
+}
+
+async function toggleElectionAnonymity(id: string, isAnonymous: boolean) {
+  const res = await fetch(`/api/elections/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isAnonymous }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to toggle election anonymity")
   }
   return res.json()
 }
@@ -145,6 +159,18 @@ export function ElectionsTable() {
     },
   })
 
+  const anonymityMutation = useMutation({
+    mutationFn: ({ id, isAnonymous }: { id: string; isAnonymous: boolean }) =>
+      toggleElectionAnonymity(id, isAnonymous),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["elections"] })
+      toast.success(`Election ${data.isAnonymous ? 'made anonymous' : 'revealed'}`)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
   const handleEdit = (election: Election) => {
     setEditingElection(election)
     setIsFormOpen(true)
@@ -158,6 +184,10 @@ export function ElectionsTable() {
 
   const handleStatusChange = (id: string, status: ElectionStatus) => {
     statusMutation.mutate({ id, status })
+  }
+
+  const handleToggleAnonymity = (id: string, isAnonymous: boolean) => {
+    anonymityMutation.mutate({ id, isAnonymous })
   }
 
   const handleFormClose = () => {
@@ -190,6 +220,7 @@ export function ElectionsTable() {
               <TableHead>Title</TableHead>
               {/* <TableHead>Type</TableHead> */}
               <TableHead>Status</TableHead>
+              <TableHead>Anonymity</TableHead>
               <TableHead>Voting Period</TableHead>
               <TableHead>Votes</TableHead>
               <TableHead>Candidates</TableHead>
@@ -207,6 +238,18 @@ export function ElectionsTable() {
                   {election.electionType}
                 </TableCell> */}
                 <TableCell>{getStatusBadge(election.status)}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={
+                      election.isAnonymous
+                        ? "bg-orange-100 text-orange-800 border-orange-300"
+                        : "bg-green-100 text-green-800 border-green-300"
+                    }
+                  >
+                    {election.isAnonymous ? "Anonymous" : "Revealed"}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-sm text-gray-600">
                   <div>{formatDate(election.votingStartDate)}</div>
                   <div className="text-xs">to {formatDate(election.votingEndDate)}</div>
@@ -244,6 +287,21 @@ export function ElectionsTable() {
                       >
                         <Eye className="mr-2 h-4 w-4" />
                         View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleToggleAnonymity(election.id, !election.isAnonymous)}
+                      >
+                        {election.isAnonymous ? (
+                          <>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Reveal Results
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="mr-2 h-4 w-4" />
+                            Make Anonymous
+                          </>
+                        )}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() =>

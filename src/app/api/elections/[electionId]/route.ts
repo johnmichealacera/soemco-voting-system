@@ -90,6 +90,7 @@ export async function PUT(
       description,
       electionType,
       voteType,
+      isAnonymous,
       votingStartDate,
       votingEndDate,
       nominationStartDate,
@@ -114,6 +115,8 @@ export async function PUT(
         ...(description !== undefined && { description }),
         ...(electionType && { electionType }),
         ...(voteType && { voteType }),
+        // Only ADMIN can toggle anonymity
+        ...(isAnonymous !== undefined && session.user.role === UserRole.ADMIN && { isAnonymous }),
         ...(votingStartDate && { votingStartDate: new Date(votingStartDate) }),
         ...(votingEndDate && { votingEndDate: new Date(votingEndDate) }),
         ...(nominationStartDate !== undefined && {
@@ -142,6 +145,52 @@ export async function PUT(
     return NextResponse.json(election)
   } catch (error) {
     console.error("Error updating election:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ electionId: string }> }
+) {
+  const { electionId } = await params;
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Only ADMIN can toggle anonymity
+    if (session.user.role !== UserRole.ADMIN) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const { isAnonymous } = body
+
+    if (typeof isAnonymous !== 'boolean') {
+      return NextResponse.json(
+        { error: "isAnonymous must be a boolean" },
+        { status: 400 }
+      )
+    }
+
+    const election = await prisma.election.update({
+      where: { id: electionId },
+      data: { isAnonymous },
+      select: {
+        id: true,
+        title: true,
+        isAnonymous: true,
+      },
+    })
+
+    return NextResponse.json(election)
+  } catch (error) {
+    console.error("Error updating election anonymity:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
