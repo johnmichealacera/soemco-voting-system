@@ -234,7 +234,9 @@ export default function ElectionResultsPage() {
                 {position.candidates.length > 0 ? (
                   <div className="space-y-4">
                     {position.candidates.map((candidate: any, index: number) => {
-                      const isWinner = index === 0 && candidate.voteCount > 0
+                      // Only show "Leading" if this candidate is first AND has more votes than the next candidate
+                      const isWinner = index === 0 && candidate.voteCount > 0 &&
+                        (position.candidates.length === 1 || candidate.voteCount > (position.candidates[1]?.voteCount || 0))
                       const maxVotes = Math.max(
                         ...position.candidates.map((c: any) => c.voteCount)
                       )

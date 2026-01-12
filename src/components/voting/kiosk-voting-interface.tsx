@@ -11,6 +11,7 @@ import { useState, useEffect } from "react"
 import { VoteType, ElectionStatus } from "@prisma/client"
 import Image from "next/image"
 import { User } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 async function getActiveElections() {
   const res = await fetch("/api/voting/elections")
@@ -43,15 +44,33 @@ async function castVotes(data: {
 export function KioskVotingInterface() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { data: session } = useSession()
   const [selectedElectionId, setSelectedElectionId] = useState<string | null>(null)
   const [selectedCandidates, setSelectedCandidates] = useState<
     Record<string, string>
   >({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showReview, setShowReview] = useState(false)
+
+  // Clear cache when component mounts to ensure fresh data
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["voting-elections"] })
+  }, [queryClient])
+
+  // Clear cache when session changes to ensure clean state
+  useEffect(() => {
+    if (session?.user?.id) {
+      queryClient.invalidateQueries({ queryKey: ["voting-elections"] })
+    }
+  }, [session?.user?.id, queryClient])
 
   const { data: elections, isLoading: electionsLoading } = useQuery({
-    queryKey: ["voting-elections"],
+    queryKey: ["voting-elections", session?.user?.id],
     queryFn: getActiveElections,
+    enabled: !!session?.user?.id,
+    // Ensure fresh data for each user session
+    staleTime: 0,
+    gcTime: 0,
   })
 
   const { data: election, isLoading: electionLoading } = useQuery({
@@ -74,8 +93,8 @@ export function KioskVotingInterface() {
     mutationFn: castVotes,
     onSuccess: () => {
       toast.success("Your votes have been cast successfully!")
-      queryClient.invalidateQueries({ queryKey: ["elections"] })
-      queryClient.invalidateQueries({ queryKey: ["voting-elections"] })
+      // Clear all cached data before redirect
+      queryClient.clear()
       setSelectedElectionId(null)
       setSelectedCandidates({})
       // Redirect back to kiosk login after successful vote
@@ -138,7 +157,7 @@ export function KioskVotingInterface() {
     )
   }
 
-  const handleVote = async () => {
+  const handleReviewVote = () => {
     if (!election.positions || election.positions.length === 0) {
       toast.error("No positions available in this election")
       return
@@ -159,6 +178,11 @@ export function KioskVotingInterface() {
       return
     }
 
+    // Show review screen
+    setShowReview(true)
+  }
+
+  const handleConfirmVote = async () => {
     setIsSubmitting(true)
 
     try {
@@ -179,6 +203,100 @@ export function KioskVotingInterface() {
     }
   }
 
+  const handleBackToVoting = () => {
+    setShowReview(false)
+  }
+
+  // Show review screen if review mode is active
+  if (showReview) {
+    return (
+      <div className="space-y-8">
+        <Card className="border-0 shadow-md">
+          <CardContent className="p-6 bg-white">
+            <div className="mb-6 text-center">
+              <h2 className="text-3xl font-bold mb-2" style={{ color: '#2c3e50' }}>
+                Review Your Votes
+              </h2>
+              <p className="text-gray-600">
+                Please verify your selections before submitting your vote
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              {election.positions?.map((position: any) => {
+                const selectedCandidateId = selectedCandidates[position.id]
+                const selectedCandidate = position.candidates?.find((c: any) => c.id === selectedCandidateId)
+
+                return (
+                  <div key={position.id} className="rounded-lg border p-6" style={{ borderColor: '#dee2e6' }}>
+                    <h3 className="text-xl font-bold mb-4" style={{ color: '#2c3e50' }}>
+                      {position.title}
+                    </h3>
+
+                    {selectedCandidate && (
+                      <div className="flex items-start space-x-4">
+                        <div className="flex-shrink-0">
+                          {selectedCandidate.imageUrl ? (
+                            <div className="relative w-16 h-16 rounded-full overflow-hidden border-2" style={{ borderColor: '#3498db' }}>
+                              <Image
+                                src={selectedCandidate.imageUrl}
+                                alt={selectedCandidate.user?.name || "Candidate"}
+                                fill
+                                className="object-cover"
+                                sizes="64px"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center border-2" style={{ borderColor: '#dee2e6' }}>
+                              <User className="w-8 h-8 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-lg" style={{ color: '#2c3e50' }}>
+                            {selectedCandidate.user?.name || selectedCandidate.user?.email || "Unknown"}
+                          </p>
+                          {selectedCandidate.bio && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              {selectedCandidate.bio}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="flex justify-center gap-4 pt-8">
+              <Button
+                onClick={handleBackToVoting}
+                variant="outline"
+                size="lg"
+                className="px-8 py-6 text-lg"
+                style={{ borderColor: '#3498db', color: '#3498db' }}
+                disabled={isSubmitting}
+              >
+                Go Back
+              </Button>
+              <Button
+                onClick={handleConfirmVote}
+                disabled={isSubmitting}
+                size="lg"
+                className="px-8 py-6 text-lg"
+                style={{ backgroundColor: '#27ae60', borderColor: '#27ae60' }}
+              >
+                {isSubmitting ? "Submitting..." : "Confirm Vote"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Show voting interface
   return (
     <div className="space-y-8">
       {election.positions?.map((position: any) => (
@@ -210,7 +328,7 @@ export function KioskVotingInterface() {
                     .map((candidate: any) => {
                       const candidateName = candidate.user?.name || candidate.user?.email || "Unknown"
                       const firstName = candidateName.split(' ')[0]
-                      
+
                       return (
                         <div
                           key={candidate.id}
@@ -278,8 +396,8 @@ export function KioskVotingInterface() {
                               }))
                             }
                             className="ml-4"
-                            style={{ 
-                              borderColor: '#3498db', 
+                            style={{
+                              borderColor: '#3498db',
                               color: '#3498db',
                               backgroundColor: selectedCandidates[position.id] === candidate.id ? '#ebf5fb' : 'white'
                             }}
@@ -308,13 +426,12 @@ export function KioskVotingInterface() {
 
       <div className="flex justify-center gap-4 pt-6">
         <Button
-          onClick={handleVote}
-          disabled={isSubmitting}
+          onClick={handleReviewVote}
           size="lg"
           className="px-8 py-6 text-lg"
           style={{ backgroundColor: '#3498db' }}
         >
-          {isSubmitting ? "Submitting..." : "Submit Vote"}
+          Review Vote
         </Button>
       </div>
     </div>
