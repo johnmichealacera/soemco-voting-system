@@ -355,82 +355,134 @@ export async function POST(request: Request) {
 
     console.log(JSON.stringify(validMembers))
 
-    const BATCH_SIZE = 50
+    const BATCH_SIZE = 25 // Reduced batch size for better performance
 
     // ============================================
-    // OPTIMIZATION 5: Batch inserts using Prisma transactions
+    // OPTIMIZATION: Use interactive transactions with longer timeout
     // ============================================
     console.log("Inserting members in batches...")
-    
+
     for (let i = 0; i < validMembers.length; i += BATCH_SIZE) {
       const batch = validMembers.slice(i, i + BATCH_SIZE)
-      
-      try {
-        // Use transaction to insert batch (callback form)
-        await prisma.$transaction(async (tx) => {
-          await Promise.all(
-            batch.map(member =>
-              tx.user.create({
-                data: {
-                  email: member.email,
-                  password: `${member.firstName}${member.lastName}123`,
-                  name: `${member.firstName} ${member.lastName}`,
-                  role: UserRole.MEMBER,
-                  memberProfile: {
-                    create: {
-                      memberId: member.memberId,
-                      firstName: member.firstName,
-                      lastName: member.lastName,
-                      middleName: member.middleName,
-                      dateOfBirth: member.dateOfBirth,
-                      address: member.address,
-                      phoneNumber: member.phoneNumber,
-                      branchId: member.branchId,
-                      status: MemberStatus.ACTIVE,
+
+        try {
+        // Use interactive transaction with longer timeout (30 seconds)
+        await prisma.$transaction(
+          async (tx) => {
+            await Promise.all(
+              batch.map(member =>
+                tx.user.create({
+                  data: {
+                    email: member.email,
+                    password: `${member.firstName}${member.lastName}123`,
+                    name: `${member.firstName} ${member.lastName}`,
+                    role: UserRole.MEMBER,
+                    memberProfile: {
+                      create: {
+                        memberId: member.memberId,
+                        firstName: member.firstName,
+                        lastName: member.lastName,
+                        middleName: member.middleName,
+                        dateOfBirth: member.dateOfBirth,
+                        address: member.address,
+                        phoneNumber: member.phoneNumber,
+                        branchId: member.branchId,
+                        status: MemberStatus.ACTIVE,
+                      },
                     },
                   },
-                },
-              })
+                })
+              )
             )
-          )
-        })
+          },
+          {
+            timeout: 30000, // 30 seconds timeout
+            maxWait: 30000,
+          }
+        )
 
         results.success += batch.length
         console.log(`Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} members`)
       } catch (error: any) {
-        // If batch fails, try individual inserts to identify which member failed
-        console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed, trying individual inserts:`, error)
-        
-        for (const member of batch) {
-          console.log('member.email', member.email);
-          
+        console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed, trying smaller batches:`, error)
+
+        // Fallback: Try smaller batches (5 at a time) with longer timeout
+        const SMALL_BATCH_SIZE = 5
+        for (let j = 0; j < batch.length; j += SMALL_BATCH_SIZE) {
+          const smallBatch = batch.slice(j, j + SMALL_BATCH_SIZE)
+
           try {
-            await prisma.user.create({
-              data: {
-                email: member.email,
-                password: `${member.firstName}${member.lastName}123`,
-                name: `${member.firstName} ${member.lastName}`,
-                role: UserRole.MEMBER,
-                memberProfile: {
-                  create: {
-                    memberId: member.memberId,
-                    firstName: member.firstName,
-                    lastName: member.lastName,
-                    middleName: member.middleName,
-                    dateOfBirth: member.dateOfBirth,
-                    address: member.address,
-                    phoneNumber: member.phoneNumber,
-                    branchId: member.branchId,
-                    status: MemberStatus.ACTIVE,
-                  },
-                },
+            await prisma.$transaction(
+              async (tx) => {
+                await Promise.all(
+                  smallBatch.map(member =>
+                    tx.user.create({
+                      data: {
+                        email: member.email,
+                        password: `${member.firstName}${member.lastName}123`,
+                        name: `${member.firstName} ${member.lastName}`,
+                        role: UserRole.MEMBER,
+                        memberProfile: {
+                          create: {
+                            memberId: member.memberId,
+                            firstName: member.firstName,
+                            lastName: member.lastName,
+                            middleName: member.middleName,
+                            dateOfBirth: member.dateOfBirth,
+                            address: member.address,
+                            phoneNumber: member.phoneNumber,
+                            branchId: member.branchId,
+                            status: MemberStatus.ACTIVE,
+                          },
+                        },
+                      },
+                    })
+                  )
+                )
               },
-            })
-            results.success++
-          } catch (individualError: any) {
-            results.failed++
-            results.errors.push(`Row ${member.rowNum}: ${individualError.message || "Unknown error"}`)
-            console.error(`Error inserting member from row ${member.rowNum}:`, individualError)
+              {
+                timeout: 45000, // 45 seconds for small batches
+                maxWait: 45000,
+              }
+            )
+
+            results.success += smallBatch.length
+            console.log(`Inserted small batch ${Math.floor(j / SMALL_BATCH_SIZE) + 1}: ${smallBatch.length} members`)
+          } catch (smallBatchError: any) {
+            console.error(`Small batch failed, trying individual inserts:`, smallBatchError)
+
+            // Final fallback: Individual inserts with no transaction timeout
+            for (const member of smallBatch) {
+              try {
+                await prisma.user.create({
+                  data: {
+                    email: member.email,
+                    password: `${member.firstName}${member.lastName}123`,
+                    name: `${member.firstName} ${member.lastName}`,
+                    role: UserRole.MEMBER,
+                    memberProfile: {
+                      create: {
+                        memberId: member.memberId,
+                        firstName: member.firstName,
+                        lastName: member.lastName,
+                        middleName: member.middleName,
+                        dateOfBirth: member.dateOfBirth,
+                        address: member.address,
+                        phoneNumber: member.phoneNumber,
+                        branchId: member.branchId,
+                        status: MemberStatus.ACTIVE,
+                      },
+                    },
+                  },
+                })
+                results.success++
+                console.log(`Inserted individual member: ${member.firstName} ${member.lastName}`)
+              } catch (individualError: any) {
+                results.failed++
+                results.errors.push(`Row ${member.rowNum}: ${individualError.message || "Unknown error"}`)
+                console.error(`Error inserting member from row ${member.rowNum}:`, individualError)
+              }
+            }
           }
         }
       }
