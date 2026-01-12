@@ -97,10 +97,8 @@ export function KioskVotingInterface() {
       queryClient.clear()
       setSelectedElectionId(null)
       setSelectedCandidates({})
-      // Redirect back to kiosk login after successful vote
-      setTimeout(() => {
-        router.push("/auth/kiosk")
-      }, 3000)
+      // Redirect back to kiosk login immediately after successful vote
+      router.push("/auth/kiosk")
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to cast votes")
@@ -269,12 +267,12 @@ export function KioskVotingInterface() {
               })}
             </div>
 
-            <div className="flex justify-center gap-4 pt-8">
+            <div className="flex gap-4 pt-8">
               <Button
                 onClick={handleBackToVoting}
                 variant="outline"
                 size="lg"
-                className="px-8 py-6 text-lg"
+                className="flex-1 px-8 py-6 text-lg"
                 style={{ borderColor: '#3498db', color: '#3498db' }}
                 disabled={isSubmitting}
               >
@@ -284,7 +282,7 @@ export function KioskVotingInterface() {
                 onClick={handleConfirmVote}
                 disabled={isSubmitting}
                 size="lg"
-                className="px-8 py-6 text-lg"
+                className="flex-1 px-8 py-6 text-lg"
                 style={{ backgroundColor: '#27ae60', borderColor: '#27ae60' }}
               >
                 {isSubmitting ? "Submitting..." : "Confirm Vote"}
@@ -424,14 +422,14 @@ export function KioskVotingInterface() {
         </Card>
       ))}
 
-      <div className="flex justify-center gap-4 pt-6">
+      <div className="pt-6">
         <Button
           onClick={handleReviewVote}
           size="lg"
-          className="px-8 py-6 text-lg"
+          className="w-full px-16 py-8 text-xl font-bold"
           style={{ backgroundColor: '#3498db' }}
         >
-          Review Vote
+          VOTE
         </Button>
       </div>
     </div>

@@ -207,6 +207,39 @@ function getStatusBadge(status: MemberStatus) {
   )
 }
 
+function getRoleBadge(role: string) {
+  const roleConfig = {
+    [UserRole.ADMIN]: {
+      label: "Administrator",
+      className: "bg-purple-100 text-purple-800 border-purple-300",
+    },
+    [UserRole.BRANCH_MANAGER]: {
+      label: "Branch Manager",
+      className: "bg-blue-100 text-blue-800 border-blue-300",
+    },
+    [UserRole.MEMBER]: {
+      label: "Member",
+      className: "bg-gray-100 text-gray-800 border-gray-300",
+    },
+    [UserRole.BOARD_MEMBER]: {
+      label: "Board Member",
+      className: "bg-gray-100 text-gray-800 border-gray-300",
+    },
+    [UserRole.ELECTION_COMMITTEE]: {
+      label: "Election Committee",
+      className: "bg-gray-100 text-gray-800 border-gray-300",
+    },
+  }
+
+  const config = roleConfig[role as UserRole] || roleConfig[UserRole.MEMBER]
+
+  return (
+    <Badge variant="outline" className={`${config.className} border`}>
+      {config.label}
+    </Badge>
+  )
+}
+
 export function MembersTable() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
@@ -701,6 +734,7 @@ export function MembersTable() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Branch</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Votes</TableHead>
@@ -749,6 +783,7 @@ export function MembersTable() {
                         <span className="text-gray-400 text-sm">No branch</span>
                       )}
                     </TableCell>
+                    <TableCell>{getRoleBadge(member.user.role)}</TableCell>
                     <TableCell>{getStatusBadge(member.status)}</TableCell>
                     <TableCell className="text-gray-600">
                       {member.phoneNumber || "-"}

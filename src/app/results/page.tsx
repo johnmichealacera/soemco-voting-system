@@ -611,14 +611,14 @@ function ResultsContent() {
                                     <div className="text-xs font-medium text-gray-600 mb-2">
                                       Votes by Branch:
                                     </div>
-                                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1">
                                       {candidate.branchBreakdown.map((branch: any) => (
-                                        <div key={branch.branchId} className="flex justify-between items-center text-xs">
+                                        <div key={branch.branchId} className="flex justify-between items-center text-xs bg-gray-50 px-2 py-1 rounded">
                                           <span className="text-gray-700 truncate mr-2">
                                             {branch.branchName}
                                           </span>
                                           <span className="font-semibold text-gray-900">
-                                            {branch.votes} {branch.votes === 1 ? 'vote' : 'votes'}
+                                            {branch.votes}
                                           </span>
                                         </div>
                                       ))}

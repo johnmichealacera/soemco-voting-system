@@ -72,6 +72,44 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Member account is not active")
         }
 
+        // Check if member has already voted in all available elections
+        const now = new Date()
+
+        // Get active elections that are within voting period
+        const activeElections = await prisma.election.findMany({
+          where: {
+            status: "VOTING_ACTIVE",
+            votingStartDate: { lte: now },
+            votingEndDate: { gte: now },
+          },
+        })
+
+        if (activeElections.length > 0) {
+          // Check which elections the member has voted in
+          const memberVotes = await prisma.vote.findMany({
+            where: {
+              memberId: member.id,
+              electionId: {
+                in: activeElections.map((e) => e.id),
+              },
+            },
+            select: {
+              electionId: true,
+            },
+          })
+
+          const votedElectionIds = new Set(memberVotes.map((v) => v.electionId))
+
+          // Check if member has voted in all active elections
+          const hasVotedInAll = activeElections.every((election) =>
+            votedElectionIds.has(election.id)
+          )
+
+          if (hasVotedInAll) {
+            throw new Error("ALREADY_VOTED")
+          }
+        }
+
         return {
           id: member.user.id,
           email: member.user.email,

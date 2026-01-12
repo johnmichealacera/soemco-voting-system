@@ -40,7 +40,11 @@ export default function KioskLoginPage() {
       })
 
       if (result?.error) {
-        toast.error("Invalid Member ID or member not found")
+        if (result.error === "ALREADY_VOTED") {
+          toast.error("You have already voted in all available elections")
+        } else {
+          toast.error("Invalid Member ID or member not found")
+        }
       } else {
         toast.success("Login successful")
         router.push("/kiosk")
@@ -64,7 +68,7 @@ export default function KioskLoginPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Role Selection
         </Button>
-        
+
         <Card className="w-full">
           <CardHeader className="space-y-1 text-center">
             <div className="flex justify-center mb-4">
