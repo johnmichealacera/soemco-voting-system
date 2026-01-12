@@ -29,11 +29,18 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="module-title text-3xl font-bold mb-0">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-2">
-          System administration and management
-        </p>
+      <div className="flex items-center gap-4">
+        <img
+          src="/soemcologo-bgremove.png"
+          alt="SOEMCO Logo"
+          className="h-12 w-auto"
+        />
+        <div>
+          <h1 className="module-title text-3xl font-bold mb-0">Admin Dashboard</h1>
+          <p className="text-gray-600 mt-2">
+            System administration and management
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

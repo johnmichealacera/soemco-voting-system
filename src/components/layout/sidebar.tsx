@@ -71,8 +71,13 @@ export function Sidebar() {
 
   return (
     <div className="flex h-full w-64 flex-col border-r bg-white shadow-sm">
-      <div className="flex h-16 items-center border-b px-6" style={{ borderColor: '#dee2e6' }}>
-        <h2 className="text-lg font-semibold" style={{ color: '#2c3e50' }}>SOEMCO Voting</h2>
+      <div className="flex h-16 items-center border-b px-6 gap-3" style={{ borderColor: '#dee2e6' }}>
+        <img
+          src="/soemcologo-bgremove.png"
+          alt="SOEMCO Logo"
+          className="h-8 w-auto"
+        />
+        <h2 className="text-lg font-semibold" style={{ color: '#2c3e50' }}>SOEMCO</h2>
       </div>
       <nav className="flex-1 space-y-1 p-4">
         {items.map((item) => {

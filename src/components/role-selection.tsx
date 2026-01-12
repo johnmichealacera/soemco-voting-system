@@ -84,8 +84,12 @@ export function RoleSelection() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-5xl">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 mb-8 shadow-xl">
-            <Vote className="h-12 w-12 text-white" />
+          <div className="mb-8">
+            <img
+              src="/soemcologo-bgremove.png"
+              alt="SOEMCO Logo"
+              className="h-20 w-auto mx-auto"
+            />
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-800 mb-4">
             SOEMCO Voting System

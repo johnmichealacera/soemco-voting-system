@@ -8,6 +8,19 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "SOEMCO Voting System",
   description: "Cooperative voting system for secure and transparent elections",
+  icons: {
+    icon: [
+      { url: "/soemcologo-bgremove.ico", sizes: "any" },
+      { url: "/soemcologo-bgremove.ico", type: "image/x-icon" }
+    ],
+    shortcut: "/soemcologo-bgremove.ico",
+    apple: "/soemcologo-bgremove.ico",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SOEMCO Voting",
+  },
 }
 
 export default function RootLayout({
