@@ -24,7 +24,31 @@ export async function GET(request: Request) {
     const search = searchParams.get("search") || ""
     const status = searchParams.get("status") || ""
     const role = searchParams.get("role") || ""
-    const branch = searchParams.get("branch") || ""
+    let branch = searchParams.get("branch") || ""
+
+    // For BRANCH_MANAGER, automatically filter to their assigned branch
+    if (session.user.role === UserRole.BRANCH_MANAGER) {
+      const managerBranch = await prisma.branch.findFirst({
+        where: { managerId: session.user.id },
+        select: { id: true }
+      })
+
+      if (managerBranch) {
+        // Override any branch filter and force filter to manager's branch
+        branch = managerBranch.id
+      } else {
+        // Branch manager not assigned to any branch, return empty results
+        return NextResponse.json({
+          members: [],
+          pagination: {
+            page: 1,
+            pageSize: 0,
+            total: 0,
+            totalPages: 0,
+          },
+        })
+      }
+    }
 
     // Build where clause
     const where: any = {}

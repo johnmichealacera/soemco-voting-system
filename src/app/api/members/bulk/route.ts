@@ -49,6 +49,32 @@ export async function PUT(request: Request) {
       }
     }
 
+    // For BRANCH_MANAGER, ensure they can only operate on members from their assigned branch
+    let branchFilter = {}
+    if (session.user.role === UserRole.BRANCH_MANAGER) {
+      const managerBranch = await prisma.branch.findFirst({
+        where: { managerId: session.user.id },
+        select: { id: true }
+      })
+
+      if (!managerBranch) {
+        return NextResponse.json(
+          { error: "You are not assigned to any branch" },
+          { status: 403 }
+        )
+      }
+
+      branchFilter = { branchId: managerBranch.id }
+
+      // If trying to transfer to a different branch, deny access
+      if (branchId !== undefined && branchId !== managerBranch.id) {
+        return NextResponse.json(
+          { error: "You can only manage members within your assigned branch" },
+          { status: 403 }
+        )
+      }
+    }
+
     // Prepare update data
     const updateData: any = {}
     if (status) {
@@ -64,6 +90,7 @@ export async function PUT(request: Request) {
         id: {
           in: memberIds,
         },
+        ...branchFilter, // Apply branch restriction for branch managers
       },
       data: updateData,
     })

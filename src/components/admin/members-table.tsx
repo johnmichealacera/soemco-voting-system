@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useSession } from "next-auth/react"
 import { MemberStatus, UserRole } from "@prisma/client"
 import { formatDate, formatDateTime } from "@/lib/utils"
 import {
@@ -208,6 +209,7 @@ function getStatusBadge(status: MemberStatus) {
 
 export function MembersTable() {
   const queryClient = useQueryClient()
+  const { data: session } = useSession()
   const [editingMember, setEditingMember] = useState<Member | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isBulkTransferOpen, setIsBulkTransferOpen] = useState(false)
@@ -563,22 +565,24 @@ export function MembersTable() {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="branch">Branch</Label>
-            <Select value={branchFilter} onValueChange={handleBranchFilterChange}>
-              <SelectTrigger id="branch">
-                <SelectValue placeholder="All branches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All branches</SelectItem>
-                {branches?.map((branch: any) => (
-                  <SelectItem key={branch.id} value={branch.id}>
-                    {branch.name} ({branch.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {session?.user?.role === UserRole.ADMIN && (
+            <div className="space-y-2">
+              <Label htmlFor="branch">Branch</Label>
+              <Select value={branchFilter} onValueChange={handleBranchFilterChange}>
+                <SelectTrigger id="branch">
+                  <SelectValue placeholder="All branches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All branches</SelectItem>
+                  {branches?.map((branch: any) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.name} ({branch.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="pageSize">Items per page</Label>
@@ -650,18 +654,22 @@ export function MembersTable() {
                 Set to Pending
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleBulkSetAsBranchManager}
-              >
-                <Building2 className="mr-2 h-4 w-4" />
-                Set as Branch Manager
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleOpenBulkTransfer}
-              >
-                <Building2 className="mr-2 h-4 w-4" />
-                Transfer to Branch
-              </DropdownMenuItem>
+              {session?.user?.role === UserRole.ADMIN && (
+                <DropdownMenuItem
+                  onClick={handleBulkSetAsBranchManager}
+                >
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Set as Branch Manager
+                </DropdownMenuItem>
+              )}
+              {session?.user?.role === UserRole.ADMIN && (
+                <DropdownMenuItem
+                  onClick={handleOpenBulkTransfer}
+                >
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Transfer to Branch
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleBulkDelete}
@@ -792,14 +800,18 @@ export function MembersTable() {
                             <XCircle className="mr-2 h-4 w-4" />
                             Suspend
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleSetAsBranchManager(member.user.id)}
-                            disabled={member.user.role === UserRole.BRANCH_MANAGER}
-                          >
-                            <Building2 className="mr-2 h-4 w-4" />
-                            Set as Branch Manager
-                          </DropdownMenuItem>
+                          {session?.user?.role === UserRole.ADMIN && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleSetAsBranchManager(member.user.id)}
+                                disabled={member.user.role === UserRole.BRANCH_MANAGER}
+                              >
+                                <Building2 className="mr-2 h-4 w-4" />
+                                Set as Branch Manager
+                              </DropdownMenuItem>
+                            </>
+                          )}
                           <DropdownMenuItem
                             onClick={() => handleDelete(member.id)}
                             className="text-red-600"

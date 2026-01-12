@@ -52,6 +52,18 @@ export async function GET(
       return NextResponse.json({ error: "Member not found" }, { status: 404 })
     }
 
+    // For BRANCH_MANAGER, ensure they can only access members from their assigned branch
+    if (session.user.role === UserRole.BRANCH_MANAGER) {
+      const managerBranch = await prisma.branch.findFirst({
+        where: { managerId: session.user.id },
+        select: { id: true }
+      })
+
+      if (!managerBranch || member.branchId !== managerBranch.id) {
+        return NextResponse.json({ error: "You can only manage members from your assigned branch" }, { status: 403 })
+      }
+    }
+
     return NextResponse.json(member)
   } catch (error) {
     console.error("Error fetching member:", error)
