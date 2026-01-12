@@ -5,11 +5,60 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
 import { User, TrendingUp, Users, BarChart3, Award, Briefcase } from "lucide-react"
+import { useRef, useCallback, useState, useEffect } from "react"
 
 async function getElectionResults(electionId: string) {
   const res = await fetch(`/api/elections/${electionId}/results`)
   if (!res.ok) throw new Error("Failed to fetch election results")
   return res.json()
+}
+
+// Hook to track ranking changes for animations
+function useRankingAnimation(results: any[]) {
+  const prevRankingsRef = useRef<Map<string, number>>(new Map())
+  const [animations, setAnimations] = useState<Map<string, { type: 'up' | 'down' | 'new', delay: number }>>(new Map())
+
+  const updateRankings = useCallback((newResults: any[]) => {
+    const newRankings = new Map<string, number>()
+    const newAnimations = new Map<string, { type: 'up' | 'down' | 'new', delay: number }>()
+
+    // Calculate new rankings
+    newResults.forEach((position) => {
+      position.candidates.forEach((candidate: any, candidateIndex: number) => {
+        const candidateId = candidate.id
+        const newRank = candidateIndex
+
+        const prevRank = prevRankingsRef.current.get(candidateId)
+
+        if (prevRank === undefined) {
+          // New candidate
+          newAnimations.set(candidateId, { type: 'new', delay: candidateIndex * 100 })
+        } else if (newRank < prevRank) {
+          // Moved up
+          newAnimations.set(candidateId, { type: 'up', delay: candidateIndex * 100 })
+        } else if (newRank > prevRank) {
+          // Moved down
+          newAnimations.set(candidateId, { type: 'down', delay: candidateIndex * 100 })
+        }
+
+        newRankings.set(candidateId, newRank)
+      })
+    })
+
+    prevRankingsRef.current = newRankings
+    setAnimations(newAnimations)
+
+    // Clear animations after they complete
+    setTimeout(() => setAnimations(new Map()), 2000)
+  }, [])
+
+  useEffect(() => {
+    if (results) {
+      updateRankings(results)
+    }
+  }, [results, updateRankings])
+
+  return animations
 }
 
 export default function ElectionResultsPage() {
@@ -21,6 +70,9 @@ export default function ElectionResultsPage() {
     queryFn: () => getElectionResults(electionId),
     refetchInterval: 5000, // Refresh every 5 seconds for live updates
   })
+
+  // Animation hook for ranking changes
+  const animations = useRankingAnimation(data?.results || [])
 
   if (isLoading) {
     return (
@@ -186,17 +238,25 @@ export default function ElectionResultsPage() {
                       const maxVotes = Math.max(
                         ...position.candidates.map((c: any) => c.voteCount)
                       )
+                      const animation = animations.get(candidate.id)
 
                       return (
                         <div
                           key={candidate.id}
-                          className={`rounded-lg border-2 p-6 transition-all ${
+                          className={`rounded-lg border-2 p-6 transition-all duration-1000 transform ${
                             isWinner
                               ? "bg-gradient-to-r from-blue-50 to-blue-100"
                               : "bg-white hover:bg-gray-50"
+                          } ${
+                            animation?.type === 'up' ? 'ranking-up-animation' : ''
+                          } ${
+                            animation?.type === 'down' ? 'ranking-down-animation' : ''
+                          } ${
+                            animation?.type === 'new' ? 'ranking-new-animation' : ''
                           }`}
                           style={{
                             borderColor: isWinner ? "#3498db" : "#dee2e6",
+                            animationDelay: animation ? `${animation.delay}ms` : '0ms',
                           }}
                         >
                           <div className="flex items-start gap-6">
@@ -278,6 +338,27 @@ export default function ElectionResultsPage() {
                                     }}
                                   />
                                 </div>
+
+                                {/* Branch Breakdown */}
+                                {candidate.branchBreakdown && candidate.branchBreakdown.length > 0 && (
+                                  <div className="mt-4 pt-3 border-t border-gray-200">
+                                    <div className="text-xs font-medium text-gray-600 mb-2">
+                                      Votes by Branch:
+                                    </div>
+                                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                                      {candidate.branchBreakdown.map((branch: any) => (
+                                        <div key={branch.branchId} className="flex justify-between items-center text-xs">
+                                          <span className="text-gray-700 truncate mr-2">
+                                            {branch.branchName}
+                                          </span>
+                                          <span className="font-semibold text-gray-900">
+                                            {branch.votes} {branch.votes === 1 ? 'vote' : 'votes'}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>

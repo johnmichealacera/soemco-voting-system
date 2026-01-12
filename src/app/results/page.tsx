@@ -1,11 +1,11 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
-import { User, TrendingUp, Users, BarChart3, Award, Briefcase, RefreshCw } from "lucide-react"
+import { User, TrendingUp, Users, BarChart3, Award, Briefcase, RefreshCw, Building2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useRef, useCallback } from "react"
 import {
   Select,
   SelectContent,
@@ -27,6 +27,54 @@ async function getElectionResults(electionId: string) {
   const res = await fetch(`/api/elections/${electionId}/results`)
   if (!res.ok) throw new Error("Failed to fetch election results")
   return res.json()
+}
+
+// Hook to track ranking changes for animations
+function useRankingAnimation(results: any[]) {
+  const prevRankingsRef = useRef<Map<string, number>>(new Map())
+  const [animations, setAnimations] = useState<Map<string, { type: 'up' | 'down' | 'new', delay: number }>>(new Map())
+
+  const updateRankings = useCallback((newResults: any[]) => {
+    const newRankings = new Map<string, number>()
+    const newAnimations = new Map<string, { type: 'up' | 'down' | 'new', delay: number }>()
+
+    // Calculate new rankings
+    newResults.forEach((position, positionIndex) => {
+      position.candidates.forEach((candidate: any, candidateIndex: number) => {
+        const candidateId = candidate.id
+        const newRank = candidateIndex
+
+        const prevRank = prevRankingsRef.current.get(candidateId)
+
+        if (prevRank === undefined) {
+          // New candidate
+          newAnimations.set(candidateId, { type: 'new', delay: candidateIndex * 100 })
+        } else if (newRank < prevRank) {
+          // Moved up
+          newAnimations.set(candidateId, { type: 'up', delay: candidateIndex * 100 })
+        } else if (newRank > prevRank) {
+          // Moved down
+          newAnimations.set(candidateId, { type: 'down', delay: candidateIndex * 100 })
+        }
+
+        newRankings.set(candidateId, newRank)
+      })
+    })
+
+    prevRankingsRef.current = newRankings
+    setAnimations(newAnimations)
+
+    // Clear animations after they complete
+    setTimeout(() => setAnimations(new Map()), 2000)
+  }, [])
+
+  useEffect(() => {
+    if (results) {
+      updateRankings(results)
+    }
+  }, [results, updateRankings])
+
+  return animations
 }
 
 function ResultsContent() {
@@ -70,6 +118,9 @@ function ResultsContent() {
     enabled: !!selectedElectionId,
     refetchInterval: 5000, // Refresh every 5 seconds for live updates
   })
+
+  // Animation hook for ranking changes
+  const animations = useRankingAnimation(resultsData?.results || [])
 
   const handleElectionChange = (electionId: string) => {
     setSelectedElectionId(electionId)
@@ -127,7 +178,7 @@ function ResultsContent() {
     )
   }
 
-  const { election, results, summary, anonymity } = resultsData
+  const { election, results, summary, anonymity, branchBreakdown } = resultsData
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
@@ -294,6 +345,127 @@ function ResultsContent() {
           </Card>
         </div>
 
+        {/* Branch Voting Breakdown */}
+        {branchBreakdown && branchBreakdown.length > 0 && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold" style={{ color: "#2c3e50" }}>
+                Voting Breakdown by Branch
+              </h2>
+              <p className="text-gray-600 mt-2">
+                See how each branch participated in the election
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {branchBreakdown.map((branch: any) => (
+                <Card key={branch.id} className="border-0 shadow-md">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg" style={{ color: "#2c3e50" }}>
+                      {branch.name}
+                      {branch.code && (
+                        <span className="text-sm font-normal text-gray-500 ml-2">
+                          ({branch.code})
+                        </span>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Total Votes</p>
+                        <p className="text-xl font-bold" style={{ color: "#3498db" }}>
+                          {branch.totalVotes}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Participation</p>
+                        <p className="text-xl font-bold" style={{ color: "#2c3e50" }}>
+                          {branch.participationRate}%
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-gray-500 mb-2">
+                        {branch.totalMembers} active members in branch
+                      </p>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full"
+                          style={{
+                            width: `${branch.participationRate}%`,
+                            backgroundColor: "#3498db",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Branch Summary Table */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle style={{ color: "#2c3e50" }}>
+                  Branch Participation Summary
+                </CardTitle>
+                <CardDescription>
+                  Detailed breakdown of voting activity across all branches
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-4 font-semibold" style={{ color: "#2c3e50" }}>
+                          Branch
+                        </th>
+                        <th className="text-center py-3 px-4 font-semibold" style={{ color: "#2c3e50" }}>
+                          Active Members
+                        </th>
+                        <th className="text-center py-3 px-4 font-semibold" style={{ color: "#2c3e50" }}>
+                          Total Votes
+                        </th>
+                        <th className="text-center py-3 px-4 font-semibold" style={{ color: "#2c3e50" }}>
+                          Participation Rate
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {branchBreakdown.map((branch: any) => (
+                        <tr key={branch.id} className="border-b hover:bg-gray-50">
+                          <td className="py-3 px-4 font-medium" style={{ color: "#2c3e50" }}>
+                            {branch.name}
+                            {branch.code && (
+                              <span className="text-gray-500 ml-2">({branch.code})</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {branch.totalMembers}
+                          </td>
+                          <td className="py-3 px-4 text-center font-semibold" style={{ color: "#3498db" }}>
+                            {branch.totalVotes}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`font-semibold ${
+                              branch.participationRate >= 80 ? 'text-green-600' :
+                              branch.participationRate >= 60 ? 'text-yellow-600' : 'text-red-600'
+                            }`}>
+                              {branch.participationRate}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Results by Position */}
         <div className="space-y-8">
           {results.map((position: any) => (
@@ -319,17 +491,25 @@ function ResultsContent() {
                   <div className="space-y-4">
                     {position.candidates.map((candidate: any, index: number) => {
                       const isWinner = index === 0 && candidate.voteCount > 0
+                      const animation = animations.get(candidate.id)
 
                       return (
                         <div
                           key={candidate.id}
-                          className={`rounded-lg border-2 p-6 transition-all ${
+                          className={`rounded-lg border-2 p-6 transition-all duration-1000 transform ${
                             isWinner
                               ? "bg-gradient-to-r from-blue-50 to-blue-100"
                               : "bg-white hover:bg-gray-50"
+                          } ${
+                            animation?.type === 'up' ? 'ranking-up-animation' : ''
+                          } ${
+                            animation?.type === 'down' ? 'ranking-down-animation' : ''
+                          } ${
+                            animation?.type === 'new' ? 'ranking-new-animation' : ''
                           }`}
                           style={{
                             borderColor: isWinner ? "#3498db" : "#dee2e6",
+                            animationDelay: animation ? `${animation.delay}ms` : '0ms',
                           }}
                         >
                           <div className="flex items-start gap-6">
@@ -419,6 +599,27 @@ function ResultsContent() {
                                     }}
                                   />
                                 </div>
+
+                                {/* Branch Breakdown */}
+                                {candidate.branchBreakdown && candidate.branchBreakdown.length > 0 && (
+                                  <div className="mt-4 pt-3 border-t border-gray-200">
+                                    <div className="text-xs font-medium text-gray-600 mb-2">
+                                      Votes by Branch:
+                                    </div>
+                                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                                      {candidate.branchBreakdown.map((branch: any) => (
+                                        <div key={branch.branchId} className="flex justify-between items-center text-xs">
+                                          <span className="text-gray-700 truncate mr-2">
+                                            {branch.branchName}
+                                          </span>
+                                          <span className="font-semibold text-gray-900">
+                                            {branch.votes} {branch.votes === 1 ? 'vote' : 'votes'}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
