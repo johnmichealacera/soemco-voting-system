@@ -355,38 +355,15 @@ export async function POST(request: Request) {
 
     console.log(JSON.stringify(validMembers))
 
-    // ============================================
-    // OPTIMIZATION 4: Batch password hashing with Promise.all
-    // ============================================
-    console.log("Hashing passwords in parallel...")
     const BATCH_SIZE = 50
-    const hashedMembers: Array<MemberData & { hashedPassword: string }> = []
-
-    for (let i = 0; i < validMembers.length; i += BATCH_SIZE) {
-      const batch = validMembers.slice(i, i + BATCH_SIZE)
-      
-      // Hash passwords in parallel for this batch
-      const hashPromises = batch.map(member => {
-        const password = `${member.firstName}${member.lastName}123`
-        return bcrypt.hash(password, 12).then(hashedPassword => ({
-          ...member,
-          hashedPassword,
-        }))
-      })
-
-      const batchResults = await Promise.all(hashPromises)
-      hashedMembers.push(...batchResults)
-    }
-
-    console.log(`Hashed passwords for ${hashedMembers.length} members`)
 
     // ============================================
     // OPTIMIZATION 5: Batch inserts using Prisma transactions
     // ============================================
     console.log("Inserting members in batches...")
     
-    for (let i = 0; i < hashedMembers.length; i += BATCH_SIZE) {
-      const batch = hashedMembers.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < validMembers.length; i += BATCH_SIZE) {
+      const batch = validMembers.slice(i, i + BATCH_SIZE)
       
       try {
         // Use transaction to insert batch (callback form)
@@ -396,7 +373,7 @@ export async function POST(request: Request) {
               tx.user.create({
                 data: {
                   email: member.email,
-                  password: member.hashedPassword,
+                  password: `${member.firstName}${member.lastName}123`,
                   name: `${member.firstName} ${member.lastName}`,
                   role: UserRole.MEMBER,
                   memberProfile: {
@@ -431,7 +408,7 @@ export async function POST(request: Request) {
             await prisma.user.create({
               data: {
                 email: member.email,
-                password: member.hashedPassword,
+                password: `${member.firstName}${member.lastName}123`,
                 name: `${member.firstName} ${member.lastName}`,
                 role: UserRole.MEMBER,
                 memberProfile: {
