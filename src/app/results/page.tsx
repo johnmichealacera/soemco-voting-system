@@ -72,7 +72,7 @@ function useRankingAnimation(results: any[]) {
     if (results) {
       updateRankings(results)
     }
-  }, [results, updateRankings])
+  }, [results])
 
   return animations
 }
