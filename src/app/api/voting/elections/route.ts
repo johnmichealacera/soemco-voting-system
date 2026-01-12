@@ -36,8 +36,8 @@ export async function GET() {
     const activeElections = await prisma.election.findMany({
       where: {
         status: ElectionStatus.VOTING_ACTIVE,
-        votingStartDate: { lte: now },
-        votingEndDate: { gte: now },
+        // votingStartDate: { lte: now },
+        // votingEndDate: { gte: now },
       },
       include: {
         positions: {
