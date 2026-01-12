@@ -33,6 +33,13 @@ export async function GET(
             createdAt: true,
           },
         },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         _count: {
           select: {
             votes: true,
@@ -82,6 +89,7 @@ export async function PUT(
       dateOfBirth,
       address,
       phoneNumber,
+      branchId,
       status,
     } = body
 
@@ -124,6 +132,7 @@ export async function PUT(
     }
     if (address !== undefined) memberUpdateData.address = address || null
     if (phoneNumber !== undefined) memberUpdateData.phoneNumber = phoneNumber || null
+    if (branchId !== undefined) memberUpdateData.branchId = branchId || null
     if (status) memberUpdateData.status = status
 
     // Update both user and member profile
@@ -154,6 +163,13 @@ export async function PUT(
             name: true,
             role: true,
             createdAt: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
           },
         },
         _count: {

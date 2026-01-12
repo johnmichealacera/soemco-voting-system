@@ -17,7 +17,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { memberIds, status } = body
+    const { memberIds, status, branchId } = body
 
     if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
       return NextResponse.json(
@@ -26,11 +26,36 @@ export async function PUT(request: Request) {
       )
     }
 
-    if (!status || !Object.values(MemberStatus).includes(status)) {
+    // Must provide either status or branchId
+    if ((!status || !Object.values(MemberStatus).includes(status)) &&
+        (branchId === undefined || branchId === null)) {
       return NextResponse.json(
-        { error: "Valid status is required" },
+        { error: "Either a valid status or branchId must be provided" },
         { status: 400 }
       )
+    }
+
+    // If branchId is provided, validate it exists (unless it's null for unassignment)
+    if (branchId !== undefined && branchId !== null) {
+      const branch = await prisma.branch.findUnique({
+        where: { id: branchId },
+        select: { id: true }
+      })
+      if (!branch) {
+        return NextResponse.json(
+          { error: "Invalid branch ID" },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Prepare update data
+    const updateData: any = {}
+    if (status) {
+      updateData.status = status as MemberStatus
+    }
+    if (branchId !== undefined) {
+      updateData.branchId = branchId
     }
 
     // Update all selected members in a transaction
@@ -40,13 +65,12 @@ export async function PUT(request: Request) {
           in: memberIds,
         },
       },
-      data: {
-        status: status as MemberStatus,
-      },
+      data: updateData,
     })
 
+    const action = status ? `status to ${status}` : `branch assignment`
     return NextResponse.json({
-      message: `Successfully updated ${result.count} member(s)`,
+      message: `Successfully updated ${result.count} member(s) ${action}`,
       count: result.count,
     })
   } catch (error: any) {

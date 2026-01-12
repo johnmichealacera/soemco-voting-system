@@ -16,6 +16,7 @@ import {
   UserCircle,
   Briefcase,
   UserCheck,
+  Building2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -49,8 +50,9 @@ const menuItems = {
   ],
   [UserRole.ADMIN]: [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/admin/elections", label: "Elections", icon: Vote },
+    { href: "/admin/branches", label: "Branches", icon: Building2 },
     { href: "/admin/members", label: "Members", icon: UserCircle },
+    { href: "/admin/elections", label: "Elections", icon: Vote },
     { href: "/admin/positions", label: "Positions", icon: Briefcase },
     { href: "/admin/candidates", label: "Candidates", icon: UserCheck },
     // { href: "/admin/users", label: "User Management", icon: Users },

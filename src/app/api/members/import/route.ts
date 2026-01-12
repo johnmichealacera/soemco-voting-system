@@ -16,6 +16,7 @@ interface MemberData {
   dateOfBirth: Date | null
   address: string | null
   phoneNumber: string | null
+  branchId: string | null
   rowNum: number
 }
 
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
     const addressIdx = headers.findIndex(h => h && h.includes("address"))
     const phoneIdx = headers.findIndex(h => h && (h.includes("phone") || h.includes("tel") || h.includes("mobile") || h.includes("contact")))
     const emailIdx = headers.findIndex(h => h && h.includes("email"))
+    const branchIdx = headers.findIndex(h => h && (h.includes("branch") || h.includes("location") || h.includes("office") || h === "branch name"))
 
     // Validate required columns
     if (nameIdx === -1) {
@@ -136,11 +138,11 @@ export async function POST(request: Request) {
     }
 
     // ============================================
-    // OPTIMIZATION 1: Fetch all existing data upfront (2 queries total)
+    // OPTIMIZATION 1: Fetch all existing data upfront (3 queries total)
     // ============================================
     console.log("Fetching existing data for duplicate checking...")
-    
-    const [existingUsers, existingMembers] = await Promise.all([
+
+    const [existingUsers, existingMembers, existingBranches] = await Promise.all([
       // Fetch all existing emails (for optional duplicate checking)
       prisma.user.findMany({
         select: { email: true },
@@ -148,6 +150,10 @@ export async function POST(request: Request) {
       // Fetch all existing memberIds (primary duplicate checker)
       prisma.memberProfile.findMany({
         select: { memberId: true },
+      }),
+      // Fetch all existing branches (for branch matching)
+      prisma.branch.findMany({
+        select: { id: true, name: true, code: true },
       }),
     ])
 
@@ -157,7 +163,14 @@ export async function POST(request: Request) {
     const existingEmails = new Set(existingUsers.map(u => u.email.toLowerCase()))
     const existingMemberIds = new Set(existingMembers.map(m => m.memberId))
 
-    console.log(`Loaded ${existingEmails.size} existing emails, ${existingMemberIds.size} existing memberIds`)
+    // Create branch lookup map (name/code -> branch id)
+    const branchMap = new Map<string, string>()
+    existingBranches.forEach(branch => {
+      branchMap.set(branch.name.toLowerCase(), branch.id)
+      branchMap.set(branch.code.toLowerCase(), branch.id)
+    })
+
+    console.log(`Loaded ${existingEmails.size} existing emails, ${existingMemberIds.size} existing memberIds, ${branchMap.size} branch mappings`)
 
     const results = {
       success: 0,
@@ -210,6 +223,7 @@ export async function POST(request: Request) {
         const address = addressIdx !== -1 ? String(row[addressIdx] || "").trim() || null : null
         const phoneNumber = phoneIdx !== -1 ? String(row[phoneIdx] || "").trim() || null : null
         const existingMemberId = memberIdIdx !== -1 ? String(row[memberIdIdx] || "").trim() : null
+        const branchName = branchIdx !== -1 ? String(row[branchIdx] || "").trim() : null
 
         // Generate email if not provided - ensure uniqueness
         const finalEmail = email || generateUniqueEmail(firstName, lastName, existingEmails)
@@ -242,6 +256,15 @@ export async function POST(request: Request) {
                 }
               }
             }
+          }
+        }
+
+        // Resolve branch ID from branch name/code
+        let branchId: string | null = null
+        if (branchName) {
+          branchId = branchMap.get(branchName.toLowerCase()) || null
+          if (!branchId) {
+            console.log(`Branch "${branchName}" not found, member will be imported without branch assignment`)
           }
         }
 
@@ -280,6 +303,7 @@ export async function POST(request: Request) {
           dateOfBirth,
           address,
           phoneNumber,
+          branchId,
           rowNum: i + 1,
         })
 
@@ -351,6 +375,7 @@ export async function POST(request: Request) {
                       dateOfBirth: member.dateOfBirth,
                       address: member.address,
                       phoneNumber: member.phoneNumber,
+                      branchId: member.branchId,
                       status: MemberStatus.ACTIVE,
                     },
                   },
@@ -385,6 +410,7 @@ export async function POST(request: Request) {
                     dateOfBirth: member.dateOfBirth,
                     address: member.address,
                     phoneNumber: member.phoneNumber,
+                    branchId: member.branchId,
                     status: MemberStatus.ACTIVE,
                   },
                 },

@@ -17,6 +17,7 @@ import { MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle, UserMinus, Use
 import { useState } from "react"
 import { toast } from "sonner"
 import { MemberForm } from "./member-form"
+import { BulkBranchTransferDialog } from "./bulk-branch-transfer-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,6 +37,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Pagination } from "@/components/ui/pagination"
 
+interface Branch {
+  id: string
+  name: string
+  code: string
+}
+
 interface Member {
   id: string
   memberId: string
@@ -45,6 +52,8 @@ interface Member {
   dateOfBirth: Date | string | null
   address: string | null
   phoneNumber: string | null
+  branchId: string | null
+  branch?: Branch | null
   status: MemberStatus
   membershipDate: Date | string
   createdAt: Date | string
@@ -75,7 +84,8 @@ async function fetchMembers(
   pageSize: number = 10,
   search: string = "",
   status: string = "",
-  role: string = ""
+  role: string = "",
+  branch: string = ""
 ): Promise<MembersResponse> {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -84,6 +94,7 @@ async function fetchMembers(
   if (search) params.append("search", search)
   if (status) params.append("status", status)
   if (role) params.append("role", role)
+  if (branch) params.append("branch", branch)
 
   const res = await fetch(`/api/members?${params.toString()}`)
   if (!res.ok) throw new Error("Failed to fetch members")
@@ -114,11 +125,11 @@ async function updateMemberStatus(id: string, status: MemberStatus) {
   return res.json()
 }
 
-async function bulkUpdateMembers(memberIds: string[], status: MemberStatus) {
+async function bulkUpdateMembers(memberIds: string[], status?: MemberStatus, branchId?: string | null) {
   const res = await fetch("/api/members/bulk", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ memberIds, status }),
+    body: JSON.stringify({ memberIds, status, branchId }),
   })
   if (!res.ok) {
     const error = await res.json()
@@ -199,6 +210,7 @@ export function MembersTable() {
   const queryClient = useQueryClient()
   const [editingMember, setEditingMember] = useState<Member | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isBulkTransferOpen, setIsBulkTransferOpen] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
   
   // Pagination and filter states
@@ -207,11 +219,17 @@ export function MembersTable() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [roleFilter, setRoleFilter] = useState<string>("")
+  const [branchFilter, setBranchFilter] = useState<string>("")
   const [searchInput, setSearchInput] = useState("")
 
   const { data: response, isLoading } = useQuery({
-    queryKey: ["members", page, pageSize, search, statusFilter, roleFilter],
-    queryFn: () => fetchMembers(page, pageSize, search, statusFilter, roleFilter),
+    queryKey: ["members", page, pageSize, search, statusFilter, roleFilter, branchFilter],
+    queryFn: () => fetchMembers(page, pageSize, search, statusFilter, roleFilter, branchFilter),
+  })
+
+  const { data: branches } = useQuery({
+    queryKey: ["branches"],
+    queryFn: () => fetch("/api/branches").then(res => res.json()),
   })
 
   const members = response?.members || []
@@ -295,6 +313,19 @@ export function MembersTable() {
     },
   })
 
+  const bulkBranchTransferMutation = useMutation({
+    mutationFn: ({ memberIds, branchId }: { memberIds: string[]; branchId: string | null }) =>
+      bulkUpdateMembers(memberIds, undefined, branchId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["members"] })
+      setSelectedMembers(new Set())
+      toast.success(data.message || "Members transferred successfully")
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
   const handleEdit = (member: Member) => {
     setEditingMember(member)
     setIsFormOpen(true)
@@ -372,6 +403,24 @@ export function MembersTable() {
     }
   }
 
+  const handleBulkBranchTransfer = (branchId: string | null) => {
+    if (selectedMembers.size === 0) {
+      toast.error("Please select at least one member")
+      return
+    }
+
+    const memberIds = Array.from(selectedMembers)
+    bulkBranchTransferMutation.mutate({ memberIds, branchId })
+  }
+
+  const handleOpenBulkTransfer = () => {
+    if (selectedMembers.size === 0) {
+      toast.error("Please select at least one member")
+      return
+    }
+    setIsBulkTransferOpen(true)
+  }
+
   const handleBulkSetAsBranchManager = () => {
     if (selectedMembers.size === 0) {
       toast.error("Please select at least one member")
@@ -411,6 +460,12 @@ export function MembersTable() {
     setSelectedMembers(new Set()) // Clear selection on filter change
   }
 
+  const handleBranchFilterChange = (value: string) => {
+    setBranchFilter(value)
+    setPage(1) // Reset to first page on filter change
+    setSelectedMembers(new Set()) // Clear selection on filter change
+  }
+
   const handlePageChange = (newPage: number) => {
     setPage(newPage)
     setSelectedMembers(new Set()) // Clear selection on page change
@@ -428,6 +483,7 @@ export function MembersTable() {
     setSearch("")
     setStatusFilter("")
     setRoleFilter("")
+    setBranchFilter("")
     setPage(1)
     setSelectedMembers(new Set())
   }
@@ -447,7 +503,7 @@ export function MembersTable() {
         <div className="flex items-center gap-2 mb-4">
           <Filter className="h-4 w-4 text-gray-600" />
           <h3 className="font-semibold" style={{ color: '#2c3e50' }}>Filters</h3>
-          {(search || statusFilter || roleFilter) && (
+          {(search || statusFilter || roleFilter || branchFilter) && (
             <Button
               variant="ghost"
               size="sm"
@@ -508,6 +564,23 @@ export function MembersTable() {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="branch">Branch</Label>
+            <Select value={branchFilter} onValueChange={handleBranchFilterChange}>
+              <SelectTrigger id="branch">
+                <SelectValue placeholder="All branches" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All branches</SelectItem>
+                {branches?.map((branch: any) => (
+                  <SelectItem key={branch.id} value={branch.id}>
+                    {branch.name} ({branch.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="pageSize">Items per page</Label>
             <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
               <SelectTrigger id="pageSize">
@@ -545,7 +618,7 @@ export function MembersTable() {
                 variant="default"
                 size="sm"
                 style={{ backgroundColor: '#3498db' }}
-                disabled={bulkUpdateMutation.isPending || bulkDeleteMutation.isPending || bulkRoleMutation.isPending}
+                disabled={bulkUpdateMutation.isPending || bulkDeleteMutation.isPending || bulkRoleMutation.isPending || bulkBranchTransferMutation.isPending}
               >
                 <Users className="mr-2 h-4 w-4" />
                 Bulk Actions
@@ -583,6 +656,12 @@ export function MembersTable() {
                 <Building2 className="mr-2 h-4 w-4" />
                 Set as Branch Manager
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleOpenBulkTransfer}
+              >
+                <Building2 className="mr-2 h-4 w-4" />
+                Transfer to Branch
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleBulkDelete}
@@ -598,7 +677,7 @@ export function MembersTable() {
 
       {members && members.length > 0 ? (
         <>
-          <div className="rounded-lg border border-gray-200 overflow-hidden">
+          <div className="rounded-lg border border-gray-200">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -612,6 +691,7 @@ export function MembersTable() {
                   <TableHead>Member ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Branch</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Votes</TableHead>
@@ -648,6 +728,18 @@ export function MembersTable() {
                       </div>
                     </TableCell>
                     <TableCell className="text-gray-600">{member.user.email}</TableCell>
+                    <TableCell>
+                      {member.branch ? (
+                        <div>
+                          <div className="font-medium text-sm" style={{ color: '#2c3e50' }}>
+                            {member.branch.name}
+                          </div>
+                          <div className="text-xs text-gray-500">{member.branch.code}</div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No branch</span>
+                      )}
+                    </TableCell>
                     <TableCell>{getStatusBadge(member.status)}</TableCell>
                     <TableCell className="text-gray-600">
                       {member.phoneNumber || "-"}
@@ -764,6 +856,13 @@ export function MembersTable() {
           onClose={handleFormClose}
         />
       )}
+
+      <BulkBranchTransferDialog
+        open={isBulkTransferOpen}
+        onClose={() => setIsBulkTransferOpen(false)}
+        selectedMemberIds={Array.from(selectedMembers)}
+        onTransfer={handleBulkBranchTransfer}
+      />
     </>
   )
 }

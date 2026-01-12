@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { MemberStatus } from "@prisma/client"
 import { toast } from "sonner"
 import {
@@ -23,6 +23,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+interface Branch {
+  id: string
+  name: string
+  code: string
+}
+
 interface Member {
   id: string
   memberId: string
@@ -32,6 +38,8 @@ interface Member {
   dateOfBirth: Date | string | null
   address: string | null
   phoneNumber: string | null
+  branchId: string | null
+  branch?: Branch | null
   status: MemberStatus
   user: {
     id: string
@@ -44,6 +52,12 @@ interface MemberFormProps {
   member?: Member | null
   open: boolean
   onClose: () => void
+}
+
+async function fetchBranches(): Promise<Branch[]> {
+  const res = await fetch("/api/branches")
+  if (!res.ok) throw new Error("Failed to fetch branches")
+  return res.json()
 }
 
 async function createMember(data: any) {
@@ -86,7 +100,13 @@ export function MemberForm({ member, open, onClose }: MemberFormProps) {
     dateOfBirth: "",
     address: "",
     phoneNumber: "",
+    branchId: "",
     status: MemberStatus.PENDING_VERIFICATION,
+  })
+
+  const { data: branches } = useQuery({
+    queryKey: ["branches"],
+    queryFn: fetchBranches,
   })
 
   useEffect(() => {
@@ -103,6 +123,7 @@ export function MemberForm({ member, open, onClose }: MemberFormProps) {
           : "",
         address: member.address || "",
         phoneNumber: member.phoneNumber || "",
+        branchId: member.branchId || "none",
         status: member.status as any,
       })
     } else {
@@ -116,6 +137,7 @@ export function MemberForm({ member, open, onClose }: MemberFormProps) {
         dateOfBirth: "",
         address: "",
         phoneNumber: "",
+        branchId: "none",
         status: MemberStatus.PENDING_VERIFICATION,
       })
     }
@@ -149,12 +171,17 @@ export function MemberForm({ member, open, onClose }: MemberFormProps) {
     e.preventDefault()
 
     const data: any = {
+      email: formData.email,
+      password: formData.password,
+      name: formData.name,
       firstName: formData.firstName,
       lastName: formData.lastName,
       middleName: formData.middleName || null,
       dateOfBirth: formData.dateOfBirth || null,
       address: formData.address || null,
       phoneNumber: formData.phoneNumber || null,
+      branchId: formData.branchId === "none" ? null : (formData.branchId || null),
+      status: formData.status,
     }
 
     if (isEditing) {
@@ -336,6 +363,26 @@ export function MemberForm({ member, open, onClose }: MemberFormProps) {
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Street address, City, State, ZIP"
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="branch">Branch</Label>
+              <Select
+                value={formData.branchId}
+                onValueChange={(value) => setFormData({ ...formData, branchId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No branch assigned</SelectItem>
+                  {branches?.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.name} ({branch.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">

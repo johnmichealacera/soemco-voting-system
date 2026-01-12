@@ -24,6 +24,7 @@ export async function GET(request: Request) {
     const search = searchParams.get("search") || ""
     const status = searchParams.get("status") || ""
     const role = searchParams.get("role") || ""
+    const branch = searchParams.get("branch") || ""
 
     // Build where clause
     const where: any = {}
@@ -38,6 +39,11 @@ export async function GET(request: Request) {
       where.user = {
         role: role as UserRole
       }
+    }
+
+    // Filter by branch
+    if (branch && branch !== "All") {
+      where.branchId = branch
     }
 
     // Search filter (search in memberId, firstName, lastName, email)
@@ -79,6 +85,13 @@ export async function GET(request: Request) {
             name: true,
             role: true,
             createdAt: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
           },
         },
         _count: {
@@ -133,6 +146,7 @@ export async function POST(request: Request) {
       dateOfBirth,
       address,
       phoneNumber,
+      branchId,
       status,
     } = body
 
@@ -175,6 +189,7 @@ export async function POST(request: Request) {
             dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
             address: address || null,
             phoneNumber: phoneNumber || null,
+            branchId: branchId || null,
             status: status || MemberStatus.PENDING_VERIFICATION,
           },
         },

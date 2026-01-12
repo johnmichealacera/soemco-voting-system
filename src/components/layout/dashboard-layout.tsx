@@ -5,12 +5,14 @@ import { Header } from "./header"
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#f5f7fa' }}>
+    <div className="flex h-screen" style={{ backgroundColor: '#f5f7fa' }}>
       <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: '#f8f9fa' }}>
-          {children}
+        <main className="flex-1 p-6" style={{ backgroundColor: '#f8f9fa' }}>
+          <div className="h-full">
+            {children}
+          </div>
         </main>
       </div>
     </div>
