@@ -342,18 +342,18 @@ export function KioskVotingInterface() {
                             {/* Candidate Image */}
                             <div className="flex-shrink-0">
                               {candidate.imageUrl ? (
-                                <div className="relative w-20 h-20 rounded-full overflow-hidden border-2" style={{ borderColor: '#3498db' }}>
+                                <div className="relative w-52 h-52 rounded-full overflow-hidden border-4" style={{ borderColor: '#3498db' }}>
                                   <Image
                                     src={candidate.imageUrl}
                                     alt={candidateName}
                                     fill
                                     className="object-cover"
-                                    sizes="80px"
+                                    sizes="208px"
                                   />
                                 </div>
                               ) : (
-                                <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center border-2" style={{ borderColor: '#dee2e6' }}>
-                                  <User className="w-10 h-10 text-gray-400" />
+                                <div className="w-52 h-52 rounded-full bg-gray-200 flex items-center justify-center border-4" style={{ borderColor: '#dee2e6' }}>
+                                  <User className="w-16 h-16 text-gray-400" />
                                 </div>
                               )}
                             </div>

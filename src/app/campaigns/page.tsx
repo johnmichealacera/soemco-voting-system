@@ -183,45 +183,45 @@ function CampaignContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {positions.map((position: any) => (
             <Card key={position.id} className="border-0 shadow-lg h-full">
-              <CardHeader className="pb-6">
-                <CardTitle className="text-3xl text-center" style={{ color: "#2c3e50" }}>
+              <CardHeader className="pb-1">
+                <CardTitle className="text-lg text-center" style={{ color: "#2c3e50" }}>
                   {position.title}
                 </CardTitle>
                 {position.description && (
-                  <p className="text-gray-600 text-center mt-2">
+                  <p className="text-gray-600 text-center mt-1">
                     {position.description}
                   </p>
                 )}
                 {position.candidates.length > 0 && (
-                  <p className="text-sm text-gray-500 text-center mt-2">
+                  <p className="text-sm text-gray-500 text-center mt-1">
                     {position.candidates.length} candidate
                     {position.candidates.length !== 1 ? "s" : ""} running for this position
                   </p>
                 )}
               </CardHeader>
-              <CardContent className="p-4 h-full flex flex-col">
+              <CardContent className="p-1 h-full flex flex-col">
                 {position.candidates.length > 0 ? (
                   <Carousel autoPlay={true} autoPlayInterval={5000} className="w-full flex-1">
                     {position.candidates.map((candidate: any, index: number) => (
                       <div
                         key={candidate.id}
-                        className="flex flex-col items-center text-center p-4 bg-gradient-to-br from-white to-gray-50 rounded-lg min-h-[280px]"
+                        className="flex flex-col items-center text-center p-2 bg-gradient-to-br from-white to-gray-50 rounded-lg min-h-[360px]"
                       >
                         {/* Candidate Image */}
-                        <div className="flex justify-center mb-4">
+                        <div className="flex justify-center mb-2">
                           {candidate.imageUrl ? (
-                            <div className="relative w-20 h-20 rounded-full overflow-hidden border-3 shadow-lg" style={{ borderColor: "#3498db" }}>
+                            <div className="relative w-40 h-40 rounded-full overflow-hidden border-4 shadow-lg" style={{ borderColor: "#3498db" }}>
                               <Image
                                 src={candidate.imageUrl}
                                 alt={candidate.name}
                                 fill
                                 className="object-cover"
-                                sizes="80px"
+                                sizes="160px"
                               />
                             </div>
                           ) : (
-                            <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center border-3 shadow-lg" style={{ borderColor: "#dee2e6" }}>
-                              <User className="w-8 h-8 text-gray-400" />
+                            <div className="w-40 h-40 rounded-full bg-gray-200 flex items-center justify-center border-4 shadow-lg" style={{ borderColor: "#dee2e6" }}>
+                              <User className="w-12 h-12 text-gray-400" />
                             </div>
                           )}
                         </div>
