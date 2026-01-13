@@ -353,137 +353,125 @@ export async function POST(request: Request) {
 
     console.log(`Found ${validMembers.length} valid members to import`)
 
-    console.log(JSON.stringify(validMembers))
-
-    const BATCH_SIZE = 25 // Reduced batch size for better performance
-
     // ============================================
-    // OPTIMIZATION: Use interactive transactions with longer timeout
+    // NEON OPTIMIZATION: Use createMany instead of transactions
     // ============================================
-    console.log("Inserting members in batches...")
+    console.log("Inserting members using optimized createMany approach...")
 
-    for (let i = 0; i < validMembers.length; i += BATCH_SIZE) {
-      const batch = validMembers.slice(i, i + BATCH_SIZE)
+    const BATCH_SIZE = 100 // Increased batch size for Neon optimization
 
+    try {
+      // Step 1: Prepare user data with pre-hashed passwords
+      // Step 1: Prepare user data with pre-hashed passwords
+      const usersData = validMembers.map(member => ({
+        email: member.email,
+        password: bcrypt.hashSync(`${member.firstName}${member.lastName}123`, 10),
+        name: `${member.firstName} ${member.lastName}`,
+        role: UserRole.MEMBER,
+      }))
+
+      // Step 2: Create users in batches using createMany (no transactions)
+      for (let i = 0; i < usersData.length; i += BATCH_SIZE) {
+        const userBatch = usersData.slice(i, i + BATCH_SIZE)
+        await prisma.user.createMany({
+          data: userBatch,
+          skipDuplicates: true,
+        })
+        console.log(`Created user batch ${Math.floor(i / BATCH_SIZE) + 1}: ${userBatch.length} users`)
+      }
+
+      // Step 3: Get created users with their IDs (to link to member profiles)
+      const createdUsers = await prisma.user.findMany({
+        where: {
+          email: {
+            in: validMembers.map(m => m.email)
+          }
+        },
+        select: {
+          id: true,
+          email: true,
+        }
+      })
+
+      // Create email to userId mapping
+      const emailToUserIdMap = new Map<string, string>()
+      createdUsers.forEach(user => {
+        emailToUserIdMap.set(user.email.toLowerCase(), user.id)
+      })
+
+      // Step 4: Prepare member profile data with correct userId references
+      const profilesData = validMembers.map(member => {
+        const userId = emailToUserIdMap.get(member.email.toLowerCase())
+        if (!userId) {
+          throw new Error(`Could not find userId for email: ${member.email}`)
+        }
+
+        return {
+          userId,
+          memberId: member.memberId,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          middleName: member.middleName,
+          dateOfBirth: member.dateOfBirth,
+          address: member.address,
+          phoneNumber: member.phoneNumber,
+          branchId: member.branchId,
+          status: MemberStatus.ACTIVE,
+        }
+      })
+
+      // Step 5: Create member profiles in batches using createMany
+      for (let i = 0; i < profilesData.length; i += BATCH_SIZE) {
+        const profileBatch = profilesData.slice(i, i + BATCH_SIZE)
+        await prisma.memberProfile.createMany({
+          data: profileBatch,
+          skipDuplicates: true,
+        })
+        console.log(`Created profile batch ${Math.floor(i / BATCH_SIZE) + 1}: ${profileBatch.length} profiles`)
+      }
+
+      results.success = validMembers.length
+      console.log(`Successfully imported ${results.success} members`)
+
+    } catch (error: any) {
+      console.error('Bulk import failed, falling back to individual imports:', error)
+
+      // Fallback: Try individual imports if bulk fails
+      for (const member of validMembers) {
         try {
-        // Use interactive transaction with longer timeout (30 seconds)
-        await prisma.$transaction(
-          async (tx) => {
-            await Promise.all(
-              batch.map(member =>
-                tx.user.create({
-                  data: {
-                    email: member.email,
-                    password: `${member.firstName}${member.lastName}123`,
-                    name: `${member.firstName} ${member.lastName}`,
-                    role: UserRole.MEMBER,
-                    memberProfile: {
-                      create: {
-                        memberId: member.memberId,
-                        firstName: member.firstName,
-                        lastName: member.lastName,
-                        middleName: member.middleName,
-                        dateOfBirth: member.dateOfBirth,
-                        address: member.address,
-                        phoneNumber: member.phoneNumber,
-                        branchId: member.branchId,
-                        status: MemberStatus.ACTIVE,
-                      },
-                    },
-                  },
-                })
-              )
-            )
-          },
-          {
-            timeout: 30000, // 30 seconds timeout
-            maxWait: 30000,
-          }
-        )
+          // Hash password for individual import
+          const hashedPassword = bcrypt.hashSync(`${member.firstName}${member.lastName}123`, 10)
 
-        results.success += batch.length
-        console.log(`Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} members`)
-      } catch (error: any) {
-        console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed, trying smaller batches:`, error)
+          const user = await prisma.user.create({
+            data: {
+              email: member.email,
+              password: hashedPassword,
+              name: `${member.firstName} ${member.lastName}`,
+              role: UserRole.MEMBER,
+            },
+          })
 
-        // Fallback: Try smaller batches (5 at a time) with longer timeout
-        const SMALL_BATCH_SIZE = 5
-        for (let j = 0; j < batch.length; j += SMALL_BATCH_SIZE) {
-          const smallBatch = batch.slice(j, j + SMALL_BATCH_SIZE)
+          await prisma.memberProfile.create({
+            data: {
+              userId: user.id,
+              memberId: member.memberId,
+              firstName: member.firstName,
+              lastName: member.lastName,
+              middleName: member.middleName,
+              dateOfBirth: member.dateOfBirth,
+              address: member.address,
+              phoneNumber: member.phoneNumber,
+              branchId: member.branchId,
+              status: MemberStatus.ACTIVE,
+            },
+          })
 
-          try {
-            await prisma.$transaction(
-              async (tx) => {
-                await Promise.all(
-                  smallBatch.map(member =>
-                    tx.user.create({
-                      data: {
-                        email: member.email,
-                        password: `${member.firstName}${member.lastName}123`,
-                        name: `${member.firstName} ${member.lastName}`,
-                        role: UserRole.MEMBER,
-                        memberProfile: {
-                          create: {
-                            memberId: member.memberId,
-                            firstName: member.firstName,
-                            lastName: member.lastName,
-                            middleName: member.middleName,
-                            dateOfBirth: member.dateOfBirth,
-                            address: member.address,
-                            phoneNumber: member.phoneNumber,
-                            branchId: member.branchId,
-                            status: MemberStatus.ACTIVE,
-                          },
-                        },
-                      },
-                    })
-                  )
-                )
-              },
-              {
-                timeout: 45000, // 45 seconds for small batches
-                maxWait: 45000,
-              }
-            )
-
-            results.success += smallBatch.length
-            console.log(`Inserted small batch ${Math.floor(j / SMALL_BATCH_SIZE) + 1}: ${smallBatch.length} members`)
-          } catch (smallBatchError: any) {
-            console.error(`Small batch failed, trying individual inserts:`, smallBatchError)
-
-            // Final fallback: Individual inserts with no transaction timeout
-            for (const member of smallBatch) {
-              try {
-                await prisma.user.create({
-                  data: {
-                    email: member.email,
-                    password: `${member.firstName}${member.lastName}123`,
-                    name: `${member.firstName} ${member.lastName}`,
-                    role: UserRole.MEMBER,
-                    memberProfile: {
-                      create: {
-                        memberId: member.memberId,
-                        firstName: member.firstName,
-                        lastName: member.lastName,
-                        middleName: member.middleName,
-                        dateOfBirth: member.dateOfBirth,
-                        address: member.address,
-                        phoneNumber: member.phoneNumber,
-                        branchId: member.branchId,
-                        status: MemberStatus.ACTIVE,
-                      },
-                    },
-                  },
-                })
-                results.success++
-                console.log(`Inserted individual member: ${member.firstName} ${member.lastName}`)
-              } catch (individualError: any) {
-                results.failed++
-                results.errors.push(`Row ${member.rowNum}: ${individualError.message || "Unknown error"}`)
-                console.error(`Error inserting member from row ${member.rowNum}:`, individualError)
-              }
-            }
-          }
+          results.success++
+          console.log(`Inserted individual member: ${member.firstName} ${member.lastName}`)
+        } catch (individualError: any) {
+          console.error(`Failed to insert individual member ${member.firstName} ${member.lastName}:`, individualError)
+          results.failed++
+          results.errors.push(`Row ${member.rowNum}: ${individualError.message || 'Database error'}`)
         }
       }
     }
