@@ -1,8 +1,10 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { KioskVotingInterface } from "@/components/voting/kiosk-voting-interface"
+import { Button } from "@/components/ui/button"
+import { LogOut } from "lucide-react"
 
 export default function KioskPage() {
   const { data: session, status } = useSession()
@@ -31,15 +33,29 @@ export default function KioskPage() {
     return null
   }
 
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/auth/kiosk-admin" })
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8 text-center">
+        <div className="mb-8 text-center relative">
+          <div className="absolute top-0 right-0">
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
+          </div>
           <h1 className="text-4xl font-bold mb-2" style={{ color: '#2c3e50' }}>
-            Voting Kiosk
+            Staff Voting Kiosk
           </h1>
           <p className="text-xl text-gray-600">
-            Welcome, {session.user?.name || "Member"}! You can now vote.
+            Welcome, {session.user?.name || "Staff Member"}! Manage member voting.
           </p>
         </div>
         <KioskVotingInterface />

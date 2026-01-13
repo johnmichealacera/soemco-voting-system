@@ -17,7 +17,10 @@ import { useSession } from "next-auth/react"
 async function getActiveElections(memberId?: string) {
   const url = memberId ? `/api/voting/elections?memberId=${encodeURIComponent(memberId)}` : "/api/voting/elections"
   const res = await fetch(url)
-  if (!res.ok) throw new Error("Failed to fetch elections")
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to fetch elections")
+  }
   return res.json()
 }
 
@@ -79,13 +82,14 @@ export function KioskVotingInterface() {
     }
   }, [session, isStaffUser, isMemberIdSubmitted])
 
-  const { data: elections, isLoading: electionsLoading } = useQuery({
+  const { data: elections, isLoading: electionsLoading, error: electionsError } = useQuery({
     queryKey: ["voting-elections", isStaffUser ? memberId : session?.user?.id],
     queryFn: () => getActiveElections(isStaffUser ? memberId : undefined),
     enabled: isStaffUser ? isMemberIdSubmitted : !!session?.user?.id,
     // Ensure fresh data for each user session
     staleTime: 0,
     gcTime: 0,
+    retry: false, // Don't retry on error so we can handle it properly
   })
 
   const { data: election, isLoading: electionLoading } = useQuery({
@@ -94,12 +98,34 @@ export function KioskVotingInterface() {
     enabled: !!selectedElectionId,
   })
 
-  // Auto-select first available election
+  // Handle elections query errors (e.g., member not found)
+  useEffect(() => {
+    if (electionsError && isStaffUser && isMemberIdSubmitted) {
+      const errorMessage = electionsError.message || "An error occurred"
+      console.log('errorMessage', errorMessage);
+      
+      if (errorMessage.includes("Member not found")) {
+        toast.error("Member not found. Please check the Member ID and try again.")
+      } else {
+        toast.error(errorMessage)
+      }
+      // Reset to member ID input so staff can try again
+      setMemberId("")
+      setIsMemberIdSubmitted(false)
+    }
+  }, [electionsError, isStaffUser, isMemberIdSubmitted])
+
+  // Auto-select first available election or handle no elections available
   useEffect(() => {
     if (elections && !selectedElectionId && isMemberIdSubmitted) {
       const availableElections = elections.filter((e: any) => e.canVote)
       if (availableElections.length > 0) {
         setSelectedElectionId(availableElections[0].id)
+      } else if (elections.length > 0) {
+        // Member exists but has already voted in all elections
+        toast.error("This member has already voted in all available elections.")
+        setMemberId("")
+        setIsMemberIdSubmitted(false)
       }
     }
   }, [elections, selectedElectionId, isMemberIdSubmitted])
