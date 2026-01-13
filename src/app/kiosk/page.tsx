@@ -38,23 +38,24 @@ export default function KioskPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-4 px-2 sm:py-8 sm:px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8 text-center relative">
-          <div className="absolute top-0 right-0">
+        <div className="mb-6 sm:mb-8 text-center relative">
+          <div className="absolute top-0 right-0 sm:right-0">
             <Button
               variant="outline"
               onClick={handleLogout}
-              className="flex items-center gap-2"
+              size="sm"
+              className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm"
             >
-              <LogOut className="h-4 w-4" />
-              Logout
+              <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Logout</span>
             </Button>
           </div>
-          <h1 className="text-4xl font-bold mb-2" style={{ color: '#2c3e50' }}>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2" style={{ color: '#2c3e50' }}>
             Staff Voting Kiosk
           </h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-lg sm:text-xl text-gray-600 px-4">
             Welcome, {session.user?.name || "Staff Member"}! Manage member voting.
           </p>
         </div>

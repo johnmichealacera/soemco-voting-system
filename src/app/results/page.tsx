@@ -187,41 +187,45 @@ function ResultsContent() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header with Election Selector */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold" style={{ color: "#2c3e50" }}>
-              Election Results
-            </h1>
-            {activeElections.length > 1 && (
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-semibold text-gray-700">
-                  Select Election:
-                </label>
-                <Select
-                  value={selectedElectionId || ""}
-                  onValueChange={handleElectionChange}
-                >
-                  <SelectTrigger className="w-64" style={{ borderColor: "#dee2e6" }}>
-                    <SelectValue placeholder="Select an election" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeElections.map((election: any) => (
-                      <SelectItem key={election.id} value={election.id}>
-                        {election.title} ({election.status.replace("_", " ")})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold" style={{ color: "#2c3e50" }}>
+                Election Results
+              </h1>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push("/")}
+              className="self-start sm:self-auto"
+              style={{ borderColor: "#3498db", color: "#3498db" }}
+            >
+              Back to Home
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => router.push("/")}
-            style={{ borderColor: "#3498db", color: "#3498db" }}
-          >
-            Back to Home
-          </Button>
+          {activeElections.length > 1 && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <label className="text-sm font-semibold text-gray-700">
+                Select Election:
+              </label>
+              <Select
+                value={selectedElectionId || ""}
+                onValueChange={handleElectionChange}
+              >
+                <SelectTrigger className="w-full sm:w-64" style={{ borderColor: "#dee2e6" }}>
+                  <SelectValue placeholder="Select an election" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeElections.map((election: any) => (
+                    <SelectItem key={election.id} value={election.id}>
+                      {election.title} ({election.status.replace("_", " ")})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Election Title */}
@@ -270,7 +274,7 @@ function ResultsContent() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <Card className="border-0 shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -501,7 +505,7 @@ function ResultsContent() {
                       return (
                         <div
                           key={candidate.id}
-                          className={`rounded-lg border-2 p-6 transition-all duration-1000 transform ${
+                          className={`rounded-lg border-2 p-4 sm:p-6 transition-all duration-1000 transform ${
                             isWinner
                               ? "bg-gradient-to-r from-blue-50 to-blue-100"
                               : "bg-white hover:bg-gray-50"
@@ -517,11 +521,11 @@ function ResultsContent() {
                             animationDelay: animation ? `${animation.delay}ms` : '0ms',
                           }}
                         >
-                          <div className="flex items-start gap-6">
+                          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
                             {/* Rank Badge */}
-                            <div className="flex-shrink-0">
+                            <div className="flex justify-center sm:flex-shrink-0 order-1 sm:order-1">
                               <div
-                                className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl ${
+                                className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center font-bold text-lg sm:text-xl ${
                                   isWinner
                                     ? "bg-blue-600 text-white"
                                     : "bg-gray-200 text-gray-600"
@@ -532,10 +536,10 @@ function ResultsContent() {
                             </div>
 
                             {/* Candidate Image */}
-                            <div className="flex-shrink-0">
+                            <div className="flex-shrink-0 order-2">
                               {candidate.imageUrl ? (
                                 <div
-                                  className="relative w-44 h-44 rounded-full overflow-hidden border-4"
+                                  className="relative w-24 h-24 sm:w-32 sm:h-32 lg:w-44 lg:h-44 rounded-full overflow-hidden border-4"
                                   style={{ borderColor: "#3498db" }}
                                 >
                                   <Image
@@ -543,30 +547,30 @@ function ResultsContent() {
                                     alt={candidate.name}
                                     fill
                                     className="object-cover"
-                                    sizes="176px"
+                                    sizes="(max-width: 640px) 96px, (max-width: 1024px) 128px, 176px"
                                   />
                                 </div>
                               ) : (
                                 <div
-                                  className="w-44 h-44 rounded-full bg-gray-200 flex items-center justify-center border-4"
+                                  className="w-24 h-24 sm:w-32 sm:h-32 lg:w-44 lg:h-44 rounded-full bg-gray-200 flex items-center justify-center border-4"
                                   style={{ borderColor: "#dee2e6" }}
                                 >
-                                  <User className="w-14 h-14 text-gray-400" />
+                                  <User className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 text-gray-400" />
                                 </div>
                               )}
                             </div>
 
                             {/* Candidate Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-3 mb-2">
+                            <div className="flex-1 text-center sm:text-left order-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
                                 <h3
-                                  className="text-xl font-bold"
+                                  className="text-lg sm:text-xl font-bold"
                                   style={{ color: "#2c3e50" }}
                                 >
                                   {candidate.name}
                                 </h3>
                                 {isWinner && (
-                                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100">
+                                  <div className="flex items-center justify-center gap-1 px-2 py-1 rounded-full bg-yellow-100">
                                     <Award className="w-4 h-4 text-yellow-600" />
                                     <span className="text-xs font-semibold text-yellow-600">
                                       Leading
@@ -581,19 +585,19 @@ function ResultsContent() {
                               )}
 
                               {/* Vote Count and Percentage Bar */}
-                              <div className="mt-4 space-y-2">
+                              <div className="mt-3 sm:mt-4 space-y-2">
                                 <div className="flex items-center justify-between">
                                   <span className="text-sm font-semibold text-gray-700">
                                     {candidate.voteCount} votes
                                   </span>
                                   <span
-                                    className="text-lg font-bold"
+                                    className="text-base sm:text-lg font-bold"
                                     style={{ color: "#3498db" }}
                                   >
                                     {candidate.percentage}%
                                   </span>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 overflow-hidden">
                                   <div
                                     className="h-full rounded-full transition-all duration-500"
                                     style={{
@@ -611,7 +615,7 @@ function ResultsContent() {
                                     <div className="text-xs font-medium text-gray-600 mb-2">
                                       Votes by Branch:
                                     </div>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
                                       {candidate.branchBreakdown.map((branch: any) => (
                                         <div key={branch.branchId} className="flex justify-between items-center text-xs bg-gray-50 px-2 py-1 rounded">
                                           <span className="text-gray-700 truncate mr-2">

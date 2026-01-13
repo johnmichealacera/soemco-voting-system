@@ -370,12 +370,12 @@ export function KioskVotingInterface() {
               })}
             </div>
 
-            <div className="flex gap-4 pt-8">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-6 sm:pt-8">
               <Button
                 onClick={handleBackToVoting}
                 variant="outline"
                 size="lg"
-                className="flex-1 px-8 py-6 text-lg"
+                className="flex-1 px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg"
                 style={{ borderColor: '#3498db', color: '#3498db' }}
                 disabled={isSubmitting}
               >
@@ -385,7 +385,7 @@ export function KioskVotingInterface() {
                 onClick={handleConfirmVote}
                 disabled={isSubmitting}
                 size="lg"
-                className="flex-1 px-8 py-6 text-lg"
+                className="flex-1 px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg"
                 style={{ backgroundColor: '#27ae60', borderColor: '#27ae60' }}
               >
                 {isSubmitting ? "Submitting..." : "Confirm Vote"}
@@ -433,10 +433,10 @@ export function KioskVotingInterface() {
                       return (
                         <div
                           key={candidate.id}
-                          className="flex items-start justify-between rounded-lg border p-5 hover:bg-blue-50 transition-colors"
+                          className="flex items-center justify-between rounded-lg border p-4 hover:bg-blue-50 transition-colors"
                           style={{ borderColor: '#dee2e6' }}
                         >
-                          <div className="flex items-start space-x-4 flex-1">
+                          <div className="flex items-center space-x-4 flex-1">
                             <RadioGroupItem
                               value={candidate.id}
                               id={`candidate-${candidate.id}`}
@@ -445,18 +445,18 @@ export function KioskVotingInterface() {
                             {/* Candidate Image */}
                             <div className="flex-shrink-0">
                               {candidate.imageUrl ? (
-                                <div className="relative w-52 h-52 rounded-full overflow-hidden border-4" style={{ borderColor: '#3498db' }}>
+                                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2" style={{ borderColor: '#3498db' }}>
                                   <Image
                                     src={candidate.imageUrl}
                                     alt={candidateName}
                                     fill
                                     className="object-cover"
-                                    sizes="208px"
+                                    sizes="(max-width: 640px) 64px, 80px"
                                   />
                                 </div>
                               ) : (
-                                <div className="w-52 h-52 rounded-full bg-gray-200 flex items-center justify-center border-4" style={{ borderColor: '#dee2e6' }}>
-                                  <User className="w-16 h-16 text-gray-400" />
+                                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gray-200 flex items-center justify-center border-2" style={{ borderColor: '#dee2e6' }}>
+                                  <User className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                                 </div>
                               )}
                             </div>
@@ -468,12 +468,12 @@ export function KioskVotingInterface() {
                                 <p className="font-bold text-xl mb-1" style={{ color: '#2c3e50' }}>
                                   {candidateName}
                                 </p>
-                                <p className="font-semibold text-base mb-1" style={{ color: '#2c3e50' }}>
+                                {/* <p className="font-semibold text-base mb-1" style={{ color: '#2c3e50' }}>
                                   {candidateName}
-                                </p>
-                                <p className="text-sm font-medium text-gray-700 mb-2">
+                                </p> */}
+                                {/* <p className="text-sm font-medium text-gray-700 mb-2">
                                   {position.title}
-                                </p>
+                                </p> */}
                                 {candidate.bio && (
                                   <p className="text-sm text-gray-600">
                                     {candidate.bio}
@@ -487,24 +487,6 @@ export function KioskVotingInterface() {
                               </div>
                             </Label>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              setSelectedCandidates((prev) => ({
-                                ...prev,
-                                [position.id]: candidate.id,
-                              }))
-                            }
-                            className="ml-4"
-                            style={{
-                              borderColor: '#3498db',
-                              color: '#3498db',
-                              backgroundColor: selectedCandidates[position.id] === candidate.id ? '#ebf5fb' : 'white'
-                            }}
-                          >
-                            Vote for {firstName}
-                          </Button>
                         </div>
                       )
                     })}

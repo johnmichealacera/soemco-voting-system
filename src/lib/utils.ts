@@ -16,6 +16,12 @@ export function formatDate(date: Date | string): string {
 
 export function formatDateTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
+
+  // Check if date is valid
+  if (isNaN(d.getTime())) {
+    return 'Invalid Date'
+  }
+
   return d.toLocaleString('en-US', {
     year: 'numeric',
     month: 'long',
