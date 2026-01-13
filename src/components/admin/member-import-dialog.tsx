@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Building2 } from "lucide-react"
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Building2, Loader2, Clock } from "lucide-react"
 import { useSession } from "next-auth/react"
 
 interface MemberImportDialogProps {
@@ -71,6 +71,9 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
   const [selectedBranchId, setSelectedBranchId] = useState<string>("none")
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const [importStage, setImportStage] = useState<string>("")
+  const [importStartTime, setImportStartTime] = useState<Date | null>(null)
 
   const { data: branches } = useQuery({
     queryKey: ["branches"],
@@ -81,15 +84,59 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
   const importMutation = useMutation({
     mutationFn: ({ file, branchId }: { file: File; branchId?: string }) =>
       importMembers(file, branchId),
+    onMutate: () => {
+      setImportStartTime(new Date())
+    },
     onSuccess: (data) => {
       setImportResult(data)
+      setImportStage("Import completed successfully!")
       queryClient.invalidateQueries({ queryKey: ["members"] })
       toast.success(data.message)
     },
     onError: (error: Error) => {
+      setImportStage("Import failed")
       toast.error(error.message || "Failed to import members")
     },
   })
+
+  // Update elapsed time and import stages during import
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    let stageInterval: NodeJS.Timeout | null = null
+
+    if (importStartTime && importMutation.isPending) {
+      interval = setInterval(() => {
+        const now = new Date()
+        const elapsed = Math.floor((now.getTime() - importStartTime.getTime()) / 1000)
+        setElapsedTime(elapsed)
+      }, 1000)
+
+      // Cycle through different stages to show progress
+      let stageIndex = 0
+      const stages = [
+        "Uploading and processing Excel file...",
+        "Validating member data...",
+        "Checking for duplicates...",
+        "Preparing database operations...",
+        "Inserting members into database...",
+        "Finalizing import..."
+      ]
+
+      stageInterval = setInterval(() => {
+        stageIndex = (stageIndex + 1) % stages.length
+        setImportStage(stages[stageIndex])
+      }, 3000) // Change stage every 3 seconds
+    } else if (!importMutation.isPending) {
+      setElapsedTime(0)
+      setImportStage("")
+      setImportStartTime(null)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+      if (stageInterval) clearInterval(stageInterval)
+    }
+  }, [importStartTime, importMutation.isPending])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -146,6 +193,9 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
   const handleClose = () => {
     setFile(null)
     setImportResult(null)
+    setElapsedTime(0)
+    setImportStage("")
+    setImportStartTime(null)
     onClose()
   }
 
@@ -244,6 +294,56 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
                   </div>
                 )}
               </div>
+
+              {/* Progress Bar */}
+              {isLoading && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-sm" style={{ color: '#2c3e50' }}>
+                      Import Progress
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-gray-600 font-mono">
+                        {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                      <span className="text-sm text-gray-700">{importStage}</span>
+                    </div>
+
+                    {/* Animated progress bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 rounded-full"
+                        style={{
+                          width: '100%',
+                          background: 'linear-gradient(90deg, #3498db 0%, #2980b9 50%, #3498db 100%)',
+                          backgroundSize: '200% 100%',
+                          animation: 'shimmer 2s infinite linear',
+                        }}
+                      />
+                    </div>
+
+                    <div className="text-xs text-gray-600 text-center">
+                      Processing your Excel file... This may take a few minutes for large files.
+                    </div>
+                  </div>
+
+                  <style dangerouslySetInnerHTML={{
+                    __html: `
+                      @keyframes shimmer {
+                        0% { background-position: -200% 0; }
+                        100% { background-position: 200% 0; }
+                      }
+                    `
+                  }} />
+                </div>
+              )}
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-semibold text-sm mb-2" style={{ color: '#2c3e50' }}>
