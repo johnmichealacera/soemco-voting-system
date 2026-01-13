@@ -19,7 +19,15 @@ export default function KioskPage() {
   }
 
   if (!session) {
-    router.push("/auth/kiosk")
+    // This shouldn't happen as auth should redirect, but fallback to kiosk admin login
+    router.push("/auth/kiosk-admin")
+    return null
+  }
+
+  // Check if user has admin or branch manager role
+  const isAuthorized = session.user.role === "ADMIN" || session.user.role === "BRANCH_MANAGER"
+  if (!isAuthorized) {
+    router.push("/auth/kiosk-admin")
     return null
   }
 

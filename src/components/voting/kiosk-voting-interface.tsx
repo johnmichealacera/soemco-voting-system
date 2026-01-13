@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
@@ -13,8 +14,9 @@ import Image from "next/image"
 import { User } from "lucide-react"
 import { useSession } from "next-auth/react"
 
-async function getActiveElections() {
-  const res = await fetch("/api/voting/elections")
+async function getActiveElections(memberId?: string) {
+  const url = memberId ? `/api/voting/elections?memberId=${encodeURIComponent(memberId)}` : "/api/voting/elections"
+  const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch elections")
   return res.json()
 }
@@ -28,6 +30,7 @@ async function getElection(electionId: string) {
 async function castVotes(data: {
   electionId: string
   votes: Array<{ positionId: string; candidateId: string }>
+  memberId?: string
 }) {
   const res = await fetch("/api/votes/batch", {
     method: "POST",
@@ -51,6 +54,8 @@ export function KioskVotingInterface() {
   >({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showReview, setShowReview] = useState(false)
+  const [memberId, setMemberId] = useState("")
+  const [isMemberIdSubmitted, setIsMemberIdSubmitted] = useState(false)
 
   // Clear cache when component mounts to ensure fresh data
   useEffect(() => {
@@ -64,10 +69,20 @@ export function KioskVotingInterface() {
     }
   }, [session?.user?.id, queryClient])
 
+  // Check if user is admin or branch manager (staff)
+  const isStaffUser = session?.user?.role === "ADMIN" || session?.user?.role === "BRANCH_MANAGER"
+
+  // For regular members, mark as submitted automatically
+  useEffect(() => {
+    if (session && !isStaffUser && !isMemberIdSubmitted) {
+      setIsMemberIdSubmitted(true)
+    }
+  }, [session, isStaffUser, isMemberIdSubmitted])
+
   const { data: elections, isLoading: electionsLoading } = useQuery({
-    queryKey: ["voting-elections", session?.user?.id],
-    queryFn: getActiveElections,
-    enabled: !!session?.user?.id,
+    queryKey: ["voting-elections", isStaffUser ? memberId : session?.user?.id],
+    queryFn: () => getActiveElections(isStaffUser ? memberId : undefined),
+    enabled: isStaffUser ? isMemberIdSubmitted : !!session?.user?.id,
     // Ensure fresh data for each user session
     staleTime: 0,
     gcTime: 0,
@@ -81,29 +96,91 @@ export function KioskVotingInterface() {
 
   // Auto-select first available election
   useEffect(() => {
-    if (elections && !selectedElectionId) {
+    if (elections && !selectedElectionId && isMemberIdSubmitted) {
       const availableElections = elections.filter((e: any) => e.canVote)
       if (availableElections.length > 0) {
         setSelectedElectionId(availableElections[0].id)
       }
     }
-  }, [elections, selectedElectionId])
+  }, [elections, selectedElectionId, isMemberIdSubmitted])
 
   const voteMutation = useMutation({
-    mutationFn: castVotes,
+    mutationFn: (data: { electionId: string; votes: Array<{ positionId: string; candidateId: string }> }) =>
+      castVotes(isStaffUser ? { ...data, memberId } : data),
     onSuccess: () => {
       toast.success("Your votes have been cast successfully!")
-      // Clear all cached data before redirect
-      queryClient.clear()
+      // Clear voting-related cached data but preserve session
+      queryClient.invalidateQueries({ queryKey: ["voting-elections"] })
+      queryClient.invalidateQueries({ queryKey: ["election"] })
       setSelectedElectionId(null)
       setSelectedCandidates({})
-      // Redirect back to kiosk login immediately after successful vote
-      router.push("/auth/kiosk")
+      // For staff users, reset member ID and go back to member ID input
+      if (isStaffUser) {
+        setMemberId("")
+        setIsMemberIdSubmitted(false)
+        toast.info("Ready for next voter")
+      } else {
+        // For regular members, redirect back to kiosk login
+        router.push("/auth/kiosk")
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to cast votes")
     },
   })
+
+  // Show member ID input for staff users
+  if (isStaffUser && !isMemberIdSubmitted) {
+    return (
+      <Card className="border-0 shadow-md">
+        <CardContent className="py-12 text-center bg-white">
+          <div className="max-w-md mx-auto">
+            <div className="mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-green-700 mb-4">
+                <User className="h-8 w-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Enter Member ID</h2>
+              <p className="text-gray-600">
+                Please enter the Member ID for the person who will be voting.
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (memberId.trim()) {
+                  setIsMemberIdSubmitted(true)
+                } else {
+                  toast.error("Please enter a Member ID")
+                }
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="memberId">Member ID</Label>
+                <Input
+                  id="memberId"
+                  type="text"
+                  value={memberId}
+                  onChange={(e) => setMemberId(e.target.value)}
+                  placeholder="MEM001"
+                  className="text-lg"
+                  autoFocus
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full py-3 text-lg"
+                style={{ backgroundColor: '#27ae60' }}
+              >
+                Continue to Voting
+              </Button>
+            </form>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (electionsLoading || electionLoading) {
     return (

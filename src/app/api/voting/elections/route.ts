@@ -4,21 +4,33 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { ElectionStatus } from "@prisma/client"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get member profile
-    const member = await prisma.memberProfile.findUnique({
-      where: { userId: session.user.id },
-    })
+    // Check if memberId is provided (for staff voting on behalf of member)
+    const { searchParams } = new URL(request.url)
+    const memberIdParam = searchParams.get('memberId')
+
+    let member
+    if (memberIdParam) {
+      // Staff user providing member ID - find by memberId
+      member = await prisma.memberProfile.findUnique({
+        where: { memberId: memberIdParam },
+      })
+    } else {
+      // Regular member voting - find by userId
+      member = await prisma.memberProfile.findUnique({
+        where: { userId: session.user.id },
+      })
+    }
 
     if (!member) {
       return NextResponse.json(
-        { error: "Member profile not found" },
+        { error: memberIdParam ? "Member not found" : "Member profile not found" },
         { status: 404 }
       )
     }

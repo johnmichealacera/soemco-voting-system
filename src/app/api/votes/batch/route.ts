@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { electionId, votes } = body // votes is an array of { positionId, candidateId }
+    const { electionId, votes, memberId: memberIdParam } = body // votes is an array of { positionId, candidateId }
 
     if (!electionId || !votes || !Array.isArray(votes) || votes.length === 0) {
       return NextResponse.json(
@@ -23,14 +23,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get member profile
-    const member = await prisma.memberProfile.findUnique({
-      where: { userId: session.user.id },
-    })
+    // Get member profile - either from memberId param (staff voting) or session user
+    let member
+    if (memberIdParam) {
+      // Staff user providing member ID - find by memberId
+      member = await prisma.memberProfile.findUnique({
+        where: { memberId: memberIdParam },
+      })
+    } else {
+      // Regular member voting - find by userId
+      member = await prisma.memberProfile.findUnique({
+        where: { userId: session.user.id },
+      })
+    }
 
     if (!member) {
       return NextResponse.json(
-        { error: "Member profile not found" },
+        { error: memberIdParam ? "Member not found" : "Member profile not found" },
         { status: 404 }
       )
     }

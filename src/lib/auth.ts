@@ -12,7 +12,8 @@ export const authOptions: NextAuthOptions = {
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
+        kioskAccess: { label: "Kiosk Access", type: "text" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -34,6 +35,13 @@ export const authOptions: NextAuthOptions = {
 
         if (!isPasswordValid) {
           throw new Error("Invalid credentials")
+        }
+
+        // Check if kiosk access is requested and validate role
+        if (credentials.kioskAccess === "true") {
+          if (user.role !== UserRole.ADMIN && user.role !== UserRole.BRANCH_MANAGER) {
+            throw new Error("Unauthorized: Only Administrators and Branch Managers can access the kiosk")
+          }
         }
 
         return {

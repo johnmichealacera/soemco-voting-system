@@ -41,6 +41,14 @@ export default withAuth(
       return NextResponse.redirect(new URL("/dashboard", req.url))
     }
 
+    // Kiosk routes - only ADMIN and BRANCH_MANAGER can access
+    if (
+      path.startsWith("/kiosk") &&
+      ![UserRole.ADMIN, UserRole.BRANCH_MANAGER].includes(token?.role as any)
+    ) {
+      return NextResponse.redirect(new URL("/auth/kiosk-admin", req.url))
+    }
+
     return NextResponse.next()
   },
   {

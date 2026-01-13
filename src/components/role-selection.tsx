@@ -17,15 +17,15 @@ import {
 } from "lucide-react"
 
 const roles = [
-  {
-    id: "MEMBER" as UserRole,
-    name: "Voting Kiosk",
-    description: "Member Voting Portal",
-    icon: User,
-    color: "bg-blue-500",
-    gradient: "from-blue-500 to-blue-700",
-    features: ["View Elections", "Cast Votes", "View Results"],
-  },
+  // {
+  //   id: "MEMBER" as UserRole,
+  //   name: "Voting Kiosk",
+  //   description: "Member Voting Portal",
+  //   icon: User,
+  //   color: "bg-blue-500",
+  //   gradient: "from-blue-500 to-blue-700",
+  //   features: ["View Elections", "Cast Votes", "View Results"],
+  // },
   // Commenting them out for now since it is not specified to be used
   // {
   //   id: "MEMBER" as UserRole,
@@ -63,6 +63,15 @@ const roles = [
     gradient: "from-red-500 to-red-700",
     features: ["Administrative Access", "Branch Management", "System Operations"],
   },
+  {
+    id: "BRANCH_MANAGER" as UserRole,
+    name: "Kiosk Management",
+    description: "Staff Kiosk Login",
+    icon: Shield,
+    color: "bg-green-500",
+    gradient: "from-green-500 to-green-700",
+    features: ["Staff Authentication", "Member ID Entry", "Assisted Voting"],
+  },
 ]
 
 export function RoleSelection() {
@@ -71,11 +80,14 @@ export function RoleSelection() {
   const selectRole = (role: UserRole) => {
     // Store selected role in sessionStorage
     sessionStorage.setItem("selectedRole", role)
-    // Redirect to kiosk login for MEMBER role, otherwise sign-in for all authenticated users
+    // Redirect based on role
     if (role === "MEMBER") {
       router.push("/auth/kiosk")
+    } else if (role === "BRANCH_MANAGER") {
+      // Kiosk Management for Branch Managers
+      router.push("/auth/kiosk-admin")
     } else {
-      // SOEMCO LOGIN for ADMIN, BRANCH_MANAGER, and other authenticated users
+      // SOEMCO LOGIN for ADMIN and other authenticated users
       router.push("/auth/signin")
     }
   }
