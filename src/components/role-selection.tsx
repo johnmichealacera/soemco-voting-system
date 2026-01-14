@@ -1,13 +1,16 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { UserRole } from "@prisma/client"
-import { 
-  User, 
-  Shield, 
-  Users, 
+import {
+  User,
+  Shield,
+  Users,
   Vote,
   Building2,
   ClipboardCheck,
@@ -76,6 +79,7 @@ const roles = [
 
 export function RoleSelection() {
   const router = useRouter()
+  const [showResultsDialog, setShowResultsDialog] = useState(false)
 
   const selectRole = (role: UserRole) => {
     // Store selected role in sessionStorage
@@ -90,6 +94,16 @@ export function RoleSelection() {
       // SOEMCO LOGIN for ADMIN and other authenticated users
       router.push("/auth/signin")
     }
+  }
+
+  const openResults = (type: "standard" | "tv") => {
+    const url = type === "tv" ? "/results/tv" : "/results"
+    window.open(url, "_blank")
+    setShowResultsDialog(false)
+  }
+
+  const openCampaigns = () => {
+    window.open("/campaigns", "_blank")
   }
 
   return (
@@ -157,7 +171,7 @@ export function RoleSelection() {
           {/* View Results Card */}
           <Card
             className="cursor-pointer transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] border-2 border-slate-200 hover:border-green-500 group bg-white w-full md:w-[420px] flex-1 shadow-md"
-            onClick={() => router.push("/results")}
+            onClick={() => setShowResultsDialog(true)}
           >
             <CardContent className="p-10 text-center flex flex-col h-full">
               <div className="inline-flex p-6 rounded-full bg-gradient-to-br from-green-500 to-green-700 mb-6 group-hover:scale-110 transition-transform shadow-xl">
@@ -200,7 +214,7 @@ export function RoleSelection() {
           {/* Campaign Information Card */}
           <Card
             className="cursor-pointer transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] border-2 border-slate-200 hover:border-purple-500 group bg-white w-full md:w-[420px] flex-1 shadow-md"
-            onClick={() => router.push("/campaigns")}
+            onClick={openCampaigns}
           >
             <CardContent className="p-10 text-center flex flex-col h-full">
               <div className="inline-flex p-6 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 mb-6 group-hover:scale-110 transition-transform shadow-xl">
@@ -247,6 +261,38 @@ export function RoleSelection() {
             Secure and transparent cooperative voting system
           </p>
         </div>
+
+        {/* Results Type Selection Dialog */}
+        <Dialog open={showResultsDialog} onOpenChange={setShowResultsDialog}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Select Results View</DialogTitle>
+              <DialogDescription>
+                Choose which results page to open in a new tab
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  onClick={() => openResults("standard")}
+                  className="h-20 flex flex-col gap-2"
+                  variant="outline"
+                >
+                  <BarChart3 className="h-8 w-8" />
+                  <span>Standard Results</span>
+                </Button>
+                <Button
+                  onClick={() => openResults("tv")}
+                  className="h-20 flex flex-col gap-2"
+                  variant="outline"
+                >
+                  <Settings className="h-8 w-8" />
+                  <span>TV Display</span>
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

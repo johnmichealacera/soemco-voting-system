@@ -82,6 +82,20 @@ export function KioskVotingInterface() {
     }
   }, [session, isStaffUser, isMemberIdSubmitted])
 
+  // Reset voting state when switching to a new member (for staff users)
+  useEffect(() => {
+    if (isStaffUser && !isMemberIdSubmitted) {
+      // Reset all voting-related state when going back to member ID input
+      setSelectedElectionId(null)
+      setSelectedCandidates({})
+      setIsSubmitting(false)
+      setShowReview(false)
+      // Clear any cached queries for the previous member
+      queryClient.invalidateQueries({ queryKey: ["voting-elections"] })
+      queryClient.invalidateQueries({ queryKey: ["election"] })
+    }
+  }, [isStaffUser, isMemberIdSubmitted, queryClient])
+
   const { data: elections, isLoading: electionsLoading, error: electionsError } = useQuery({
     queryKey: ["voting-elections", isStaffUser ? memberId : session?.user?.id],
     queryFn: () => getActiveElections(isStaffUser ? memberId : undefined),
@@ -189,10 +203,11 @@ export function KioskVotingInterface() {
                   type="text"
                   value={memberId}
                   onChange={(e) => setMemberId(e.target.value)}
-                  placeholder="MEM001"
+                  placeholder="MEM001 or 14-0000160-6"
                   className="text-lg"
                   autoFocus
                 />
+                <p className="text-xs text-gray-500">(dashes and spaces will be ignored)</p>
               </div>
               <Button
                 type="submit"

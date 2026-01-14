@@ -3,7 +3,9 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings } from "lucide-react"
+import { Settings, Database } from "lucide-react"
+import { ResetDemoDialog } from "@/components/admin/reset-demo-dialog"
+import { Button } from "@/components/ui/button"
 
 export default async function AdminSystemPage() {
   const session = await getServerSession(authOptions)
@@ -33,11 +35,35 @@ export default async function AdminSystemPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="bg-white p-6">
-            <div className="text-center py-8">
-              <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">
-                System configuration interface coming soon...
-              </p>
+            <div className="space-y-6">
+              {/* Reset Demo Data Section */}
+              <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                <div className="flex items-start gap-3">
+                  <Database className="h-6 w-6 text-red-600 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-red-900 mb-2">Reset Demo Data</h3>
+                    <p className="text-sm text-red-700 mb-3">
+                      Permanently delete all election data, votes, members, and users. This will restore the system to its initial demo state with only the admin account.
+                    </p>
+                    <p className="text-xs text-red-600 mb-4">
+                      <strong>Warning:</strong> This action cannot be undone. Make sure to backup any important data before proceeding.
+                    </p>
+                    <ResetDemoDialog>
+                      <Button variant="destructive" size="sm">
+                        Reset Demo Data
+                      </Button>
+                    </ResetDemoDialog>
+                  </div>
+                </div>
+              </div>
+
+              {/* Future System Settings */}
+              <div className="text-center py-8 border-t">
+                <Settings className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-600 text-sm">
+                  Additional system configuration options coming soon...
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
