@@ -69,6 +69,7 @@ export const config = {
     "/kiosk/:path*",
     "/members/:path*",
     "/profile/:path*",
+    "/reports/:path*",
   ],
 }
 
