@@ -10,13 +10,15 @@ import { UserCircle, Plus } from "lucide-react"
 import { MembersTable } from "@/components/admin/members-table"
 import { MemberForm } from "@/components/admin/member-form"
 import { MemberImportDialog } from "@/components/admin/member-import-dialog"
-import { Upload } from "lucide-react"
+import { ConsolidatedImportDialog } from "@/components/admin/consolidated-import-dialog"
+import { Upload, FileStack } from "lucide-react"
 
 export default function AdminMembersPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
+  const [isConsolidatedOpen, setIsConsolidatedOpen] = useState(false)
 
   if (status === "loading") {
     return (
@@ -52,6 +54,16 @@ export default function AdminMembersPage() {
               <Upload className="mr-2 h-4 w-4" />
               Import Excel
             </Button>
+            {session?.user?.role === "ADMIN" && (
+              <Button
+                onClick={() => setIsConsolidatedOpen(true)}
+                variant="outline"
+                style={{ borderColor: '#2ecc71', color: '#2ecc71' }}
+              >
+                <FileStack className="mr-2 h-4 w-4" />
+                Import Consolidated
+              </Button>
+            )}
             <Button
               onClick={() => setIsFormOpen(true)}
               style={{ backgroundColor: '#3498db' }}
@@ -89,6 +101,13 @@ export default function AdminMembersPage() {
           <MemberImportDialog
             open={isImportOpen}
             onClose={() => setIsImportOpen(false)}
+          />
+        )}
+
+        {isConsolidatedOpen && (
+          <ConsolidatedImportDialog
+            open={isConsolidatedOpen}
+            onClose={() => setIsConsolidatedOpen(false)}
           />
         )}
       </div>
