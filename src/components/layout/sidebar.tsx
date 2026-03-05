@@ -56,7 +56,7 @@ const menuItems = {
     { href: "/admin/positions", label: "Positions", icon: Briefcase },
     { href: "/admin/candidates", label: "Candidates", icon: UserCheck },
     { href: "/reports", label: "Reports", icon: BarChart3 },
-    { href: "/admin/system", label: "System Config", icon: Settings },
+    // { href: "/admin/system", label: "System Config", icon: Settings },
     { href: "/profile", label: "Profile", icon: UserCircle },
   ],
 }
