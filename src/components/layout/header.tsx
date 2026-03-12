@@ -61,11 +61,11 @@ export function Header() {
     <header className="flex h-16 items-center justify-between border-b px-6 shadow-sm" style={{ backgroundColor: '#2c3e50' }}>
       <div className="flex items-center gap-4">
         <img
-          src="/soemcologo-bgremove.png"
-          alt="SOEMCO Logo"
+          src="/tafimco-removebg-preview.png"
+          alt="TAFIMCO Logo"
           className="h-10 w-auto"
         />
-        <h1 className="text-xl font-bold text-white hidden sm:block">SOEMCO Voting System</h1>
+        <h1 className="text-xl font-bold text-white hidden sm:block">TAFIMCO Voting System</h1>
       </div>
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">

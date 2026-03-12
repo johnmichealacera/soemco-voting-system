@@ -59,7 +59,7 @@ const roles = [
   // },
   {
     id: "ADMIN" as UserRole,
-    name: "SOEMCO LOGIN",
+    name: "TAFIMCO LOGIN",
     description: "Administrative & Branch Manager Access",
     icon: Settings,
     color: "bg-red-500",
@@ -91,7 +91,7 @@ export function RoleSelection() {
       // Kiosk Management for Branch Managers
       router.push("/auth/kiosk-admin")
     } else {
-      // SOEMCO LOGIN for ADMIN and other authenticated users
+      // TAFIMCO LOGIN for ADMIN and other authenticated users
       router.push("/auth/signin")
     }
   }
@@ -112,19 +112,19 @@ export function RoleSelection() {
         <div className="text-center mb-16">
           <div className="mb-8">
             <img
-              src="/soemcologo-bgremove.png"
-              alt="SOEMCO Logo"
+              src="/tafimco-removebg-preview.png"
+              alt="TAFIMCO Logo"
               className="h-20 w-auto mx-auto"
             />
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-800 mb-4">
-            SOEMCO Voting System
+            TAFIMCO Voting System
           </h1>
           <p className="text-xl md:text-2xl text-slate-600 mb-3 font-medium">
             Choose your access method
           </p>
           <p className="text-sm md:text-base text-slate-500 max-w-2xl mx-auto">
-            Select Voting Kiosk for members or SOEMCO LOGIN for administrative access
+            Select Voting Kiosk for members or TAFIMCO LOGIN for administrative access
           </p>
         </div>
 

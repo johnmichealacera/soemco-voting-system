@@ -103,7 +103,7 @@ export default function KioskAdminLoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@soemco.com"
+                  placeholder="admin@tafimco.com"
                   {...register("email")}
                   autoFocus
                 />

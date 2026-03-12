@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:tafimco": "tsx prisma/seed-tafimco.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

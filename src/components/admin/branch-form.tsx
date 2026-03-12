@@ -176,7 +176,7 @@ export function BranchForm({ branch, open, onClose }: BranchFormProps) {
           <DialogDescription>
             {branch
               ? "Update branch information and settings."
-              : "Create a new branch for SOEMCO operations."
+              : "Create a new branch for TAFIMCO operations."
             }
           </DialogDescription>
         </DialogHeader>

@@ -18,7 +18,7 @@ export default async function BranchesPage() {
           <div>
             <h1 className="module-title text-3xl font-bold mb-0">Branch Management</h1>
             <p className="text-gray-600 mt-2">
-              Manage SOEMCO branches and their operations
+              Manage TAFIMCO branches and their operations
             </p>
           </div>
         </div>

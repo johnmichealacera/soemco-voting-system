@@ -33,8 +33,8 @@ export function MemberDashboard() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <img
-          src="/soemcologo-bgremove.png"
-          alt="SOEMCO Logo"
+          src="/tafimco-removebg-preview.png"
+          alt="TAFIMCO Logo"
           className="h-12 w-auto"
         />
         <div>

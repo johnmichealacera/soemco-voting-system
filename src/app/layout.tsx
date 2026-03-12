@@ -6,20 +6,20 @@ import { Providers } from "@/components/providers"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "SOEMCO Voting System",
+  title: "TAFIMCO Voting System",
   description: "Cooperative voting system for secure and transparent elections",
   icons: {
     icon: [
-      { url: "/soemcologo-bgremove.ico", sizes: "any" },
-      { url: "/soemcologo-bgremove.ico", type: "image/x-icon" }
+      { url: "/tafimco-removebg-preview.ico", sizes: "any" },
+      { url: "/tafimco-removebg-preview.ico", type: "image/x-icon" }
     ],
-    shortcut: "/soemcologo-bgremove.ico",
-    apple: "/soemcologo-bgremove.ico",
+    shortcut: "/tafimco-removebg-preview.ico",
+    apple: "/tafimco-removebg-preview.ico",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "SOEMCO Voting",
+    title: "TAFIMCO Voting",
   },
 }
 
