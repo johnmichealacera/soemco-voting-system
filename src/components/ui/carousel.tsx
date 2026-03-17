@@ -10,6 +10,7 @@ interface CarouselProps {
   className?: string
   autoPlay?: boolean
   autoPlayInterval?: number
+  pauseOnHover?: boolean
 }
 
 export function Carousel({
@@ -17,8 +18,10 @@ export function Carousel({
   className,
   autoPlay = false,
   autoPlayInterval = 5000,
+  pauseOnHover = true,
 }: CarouselProps) {
   const [currentIndex, setCurrentIndex] = React.useState(0)
+  const [isPaused, setIsPaused] = React.useState(false)
   const items = React.Children.toArray(children)
   const totalItems = items.length
 
@@ -36,18 +39,34 @@ export function Carousel({
 
   // Auto-play functionality
   React.useEffect(() => {
-    if (!autoPlay || totalItems <= 1) return
+    if (!autoPlay || totalItems <= 1 || isPaused) return
 
     const interval = setInterval(goToNext, autoPlayInterval)
     return () => clearInterval(interval)
-  }, [autoPlay, autoPlayInterval, goToNext, totalItems])
+  }, [autoPlay, autoPlayInterval, goToNext, totalItems, isPaused])
 
   if (totalItems === 0) {
     return null
   }
 
+  const handleMouseEnter = () => {
+    if (pauseOnHover) {
+      setIsPaused(true)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    if (pauseOnHover) {
+      setIsPaused(false)
+    }
+  }
+
   return (
-    <div className={cn("relative w-full", className)}>
+    <div
+      className={cn("relative w-full", className)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       {/* Carousel Container */}
       <div className="relative overflow-hidden rounded-lg">
         <div
@@ -57,10 +76,7 @@ export function Carousel({
           }}
         >
           {items.map((item, index) => (
-            <div
-              key={index}
-              className="min-w-full flex-shrink-0"
-            >
+            <div key={index} className="min-w-full">
               {item}
             </div>
           ))}

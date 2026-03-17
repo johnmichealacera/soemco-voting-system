@@ -3,11 +3,10 @@
 import { useQuery } from "@tanstack/react-query"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import Image from "next/image"
-import { User, ArrowLeft, ArrowRight, Vote } from "lucide-react"
+import { User, Vote } from "lucide-react"
 import { Carousel } from "@/components/ui/carousel"
-import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -127,178 +126,158 @@ function CampaignContent() {
   const { election, positions } = campaignData
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold" style={{ color: "#2c3e50" }}>
+    <div className="min-h-screen bg-slate-950 text-white">
+      {/* Header */}
+      <div className="border-b border-white/10 px-6 py-5">
+        <div className="flex flex-col items-center text-center gap-2">
+          <div>
+            <p className="text-[10px] font-semibold tracking-[0.3em] uppercase text-slate-400 mb-1">
               Campaign Information
+            </p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+              {election.title}
             </h1>
-            {activeElections.length > 1 && (
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-semibold text-gray-700">
-                  Select Election:
-                </label>
-                <Select
-                  value={selectedElectionId || ""}
-                  onValueChange={handleElectionChange}
-                >
-                  <SelectTrigger className="w-64" style={{ borderColor: "#dee2e6" }}>
-                    <SelectValue placeholder="Select an election" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeElections.map((election: any) => (
-                      <SelectItem key={election.id} value={election.id}>
-                        {election.title} ({election.status.replace("_", " ")})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {election.description && (
+              <p className="text-sm text-slate-400 mt-1">{election.description}</p>
             )}
           </div>
-          <Button
-            variant="outline"
-            onClick={() => router.push("/")}
-            style={{ borderColor: "#3498db", color: "#3498db" }}
-          >
-            Back to Home
-          </Button>
-        </div>
-
-        {/* Election Title */}
-        <div className="text-center space-y-4">
-          <h2 className="text-3xl font-bold" style={{ color: "#2c3e50" }}>
-            {election.title}
-          </h2>
-          {election.description && (
-            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              {election.description}
-            </p>
+          {activeElections.length > 1 && (
+            <div className="mt-2">
+              <Select value={selectedElectionId || ""} onValueChange={handleElectionChange}>
+                <SelectTrigger className="w-64 bg-slate-900 border-slate-700 text-white mx-auto">
+                  <SelectValue placeholder="Select an election" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeElections.map((e: any) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.title} ({e.status.replace("_", " ")})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
+      </div>
 
-        {/* Positions with Candidate Slideshows */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {positions.map((position: any) => (
-            <Card key={position.id} className="border-0 shadow-lg h-full">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-lg text-center" style={{ color: "#2c3e50" }}>
-                  {position.title}
-                </CardTitle>
-                {position.description && (
-                  <p className="text-gray-600 text-center mt-1">
-                    {position.description}
-                  </p>
-                )}
-                {position.candidates.length > 0 && (
-                  <p className="text-sm text-gray-500 text-center mt-1">
-                    {position.candidates.length} candidate
-                    {position.candidates.length !== 1 ? "s" : ""} running for this position
-                  </p>
-                )}
-              </CardHeader>
-              <CardContent className="p-1 h-full flex flex-col">
-                {position.candidates.length > 0 ? (
-                  <Carousel autoPlay={true} autoPlayInterval={5000} className="w-full flex-1">
-                    {position.candidates.map((candidate: any, index: number) => (
-                      <div
-                        key={candidate.id}
-                        className="flex flex-col items-center text-center p-2 bg-gradient-to-br from-white to-gray-50 rounded-lg min-h-[360px]"
-                      >
-                        {/* Candidate Image */}
-                        <div className="flex justify-center mb-2">
-                          {candidate.imageUrl ? (
-                            <div className="relative w-40 h-40 rounded-full overflow-hidden border-4 shadow-lg" style={{ borderColor: "#3498db" }}>
-                              <Image
-                                src={candidate.imageUrl}
-                                alt={candidate.name}
-                                fill
-                                className="object-cover"
-                                sizes="160px"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-40 h-40 rounded-full bg-gray-200 flex items-center justify-center border-4 shadow-lg" style={{ borderColor: "#dee2e6" }}>
-                              <User className="w-12 h-12 text-gray-400" />
-                            </div>
-                          )}
+      {/* Positions */}
+      <div className="px-6 py-6 space-y-8">
+        {positions.map((position: any) => (
+          <section key={position.id}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-gradient-to-r from-blue-500/60 to-transparent" />
+              <h2 className="text-sm font-bold tracking-[0.2em] uppercase text-blue-400 shrink-0">
+                {position.title}
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-l from-blue-500/60 to-transparent" />
+            </div>
+            {position.description && (
+              <p className="text-xs text-slate-500 text-center mb-2">{position.description}</p>
+            )}
+            {position.candidates.length > 0 && (
+              <p className="text-[11px] text-slate-500 text-center mb-5">
+                {position.candidates.length} candidate{position.candidates.length !== 1 ? "s" : ""} running
+              </p>
+            )}
+
+            {position.candidates.length > 0 ? (
+              <div className="px-4 md:px-8">
+                <Carousel autoPlay autoPlayInterval={7000} className="w-full">
+                  {position.candidates.map((candidate: any, index: number) => (
+                  <div
+                    key={candidate.id}
+                    className="group/card mx-8 md:mx-16 grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4 items-stretch bg-slate-900/60 border border-white/5 rounded-xl transition-all duration-300 ease-out hover:scale-[1.02] hover:bg-slate-900/90 hover:border-blue-500/30 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)]"
+                  >
+                    {/* Left: Image column */}
+                    <div className="flex flex-col items-center justify-center bg-slate-900/80 p-4">
+                      {candidate.imageUrl ? (
+                        <div className="relative w-36 h-36 rounded-full overflow-hidden ring-2 ring-blue-500/50 ring-offset-2 ring-offset-slate-900 shadow-lg mb-3 transition-all duration-300 group-hover/card:ring-blue-400 group-hover/card:ring-offset-4 group-hover/card:shadow-blue-500/20 group-hover/card:shadow-xl">
+                          <Image
+                            src={candidate.imageUrl}
+                            alt={candidate.name}
+                            fill
+                            className="object-cover transition-transform duration-500 group-hover/card:scale-110"
+                            sizes="144px"
+                          />
                         </div>
-
-                        {/* Candidate Information */}
-                        <div className="space-y-2 w-full flex-1 flex flex-col justify-center">
-                          <div>
-                            <h4 className="text-lg font-bold" style={{ color: "#2c3e50" }}>
-                              {candidate.name}
-                            </h4>
-                            <p className="text-sm text-gray-600 mb-2">
-                              Candidate {index + 1} of {position.candidates.length}
-                            </p>
-                          </div>
-
-                          {candidate.bio && (
-                            <div>
-                              <p className="text-sm text-gray-700 leading-relaxed overflow-hidden" style={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: 'vertical'
-                              }}>
-                                {candidate.bio}
-                              </p>
-                            </div>
-                          )}
-
-                          {candidate.qualifications && (
-                            <div>
-                              <p className="text-xs text-gray-600 leading-relaxed overflow-hidden" style={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical'
-                              }}>
-                                {candidate.qualifications}
-                              </p>
-                            </div>
-                          )}
-
-                          {candidate.nominationDate && (
-                            <div className="pt-2 border-t border-gray-200 mt-auto">
-                              <p className="text-xs text-gray-500">
-                                Nominated {new Date(candidate.nominationDate).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })}
-                              </p>
-                            </div>
-                          )}
+                      ) : (
+                        <div className="w-36 h-36 rounded-full bg-slate-800 flex items-center justify-center ring-2 ring-slate-700 ring-offset-2 ring-offset-slate-900 mb-3 transition-all duration-300 group-hover/card:ring-blue-500/50 group-hover/card:ring-offset-4">
+                          <User className="w-14 h-14 text-slate-500 transition-colors duration-300 group-hover/card:text-blue-400" />
                         </div>
-                      </div>
-                    ))}
-                  </Carousel>
-                ) : (
-                  <div className="text-center py-12 text-gray-500">
-                    <User className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-lg">
-                      No candidates announced for this position yet.
-                    </p>
+                      )}
+                      <h3 className="text-sm font-semibold text-white leading-tight text-center transition-colors duration-300 group-hover/card:text-blue-100">
+                        {candidate.name}
+                      </h3>
+                      <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mt-1">
+                        {index + 1} of {position.candidates.length}
+                      </p>
+                      {candidate.nominationDate && (
+                        <p className="text-[10px] text-slate-600 mt-1">
+                          Nominated{" "}
+                          {new Date(candidate.nominationDate).toLocaleDateString("en-US", {
+                            month: "short", day: "numeric", year: "numeric",
+                          })}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Right: Bio + Qualifications */}
+                    <div className="py-4 px-4 custom-scrollbar text-center md:text-left">
+                      {candidate.bio && (
+                        <p
+                          className="text-sm text-slate-300 leading-relaxed whitespace-pre-line mb-3 transition-colors duration-300 group-hover/card:text-slate-200"
+                          style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
+                        >
+                          {candidate.bio}
+                        </p>
+                      )}
+                      {candidate.qualifications && (
+                        <p
+                          className="text-xs text-slate-400 leading-relaxed whitespace-pre-line transition-colors duration-300 group-hover/card:text-slate-300"
+                          style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
+                        >
+                          {candidate.qualifications}
+                        </p>
+                      )}
+                      {!candidate.bio && !candidate.qualifications && (
+                        <p className="text-sm text-slate-600 italic">No information provided.</p>
+                      )}
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                ))}
+                </Carousel>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <User className="w-12 h-12 mx-auto mb-2 text-slate-700" />
+                <p className="text-sm text-slate-600">No candidates announced yet.</p>
+              </div>
+            )}
+          </section>
+        ))}
 
         {positions.length === 0 && (
-          <Card className="border-0 shadow-lg">
-            <CardContent className="py-12 text-center">
-              <p className="text-gray-600 text-lg">
-                No positions available for this election.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="text-center py-16">
+            <p className="text-slate-500">No positions available for this election.</p>
+          </div>
         )}
       </div>
+
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.3);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.5);
+        }
+      `}</style>
     </div>
   )
 }
