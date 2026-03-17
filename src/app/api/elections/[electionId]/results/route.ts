@@ -250,8 +250,8 @@ export async function GET(
         }>
       }> = candidatesWithData.map((candidate, sortedIndex) => {
         // Determine if we should show real name or anonymous name
-        // Show real names only when election is NOT anonymous
-        const shouldShowRealName = !election.isAnonymous
+        // Admins always see real names; public views respect anonymity flag
+        const shouldShowRealName = isAdmin || !election.isAnonymous
         const displayName = shouldShowRealName
           ? (candidate.user?.name || candidate.user?.email || "Unknown")
           : getAnonymousName(sortedIndex)
