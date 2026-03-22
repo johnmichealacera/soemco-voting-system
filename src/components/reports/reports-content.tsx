@@ -75,6 +75,12 @@ interface CandidateBranchVotes {
   votes: number
 }
 
+/** Voters who cast a ballot for this candidate (coop member ID + branch), recount/audit — API returns for staff only */
+interface ResultVoter {
+  memberId: string
+  branchId: string | null
+}
+
 interface ElectionResultsResponse {
   election: { id: string; title: string; status: string }
   results: Array<{
@@ -89,6 +95,7 @@ interface ElectionResultsResponse {
       voteCount: number
       percentage: number
       branchBreakdown?: CandidateBranchVotes[]
+      voters?: ResultVoter[]
     }>
   }>
   summary: {
@@ -209,6 +216,14 @@ export function ReportsContent() {
       }
     }
 
+    const filterVotersForBranch = (voters: ResultVoter[] | undefined): ResultVoter[] | undefined => {
+      if (!voters?.length) return voters
+      if (branchId === "unassigned") {
+        return voters.filter((v) => v.branchId == null)
+      }
+      return voters.filter((v) => v.branchId === branchId)
+    }
+
     const results = electionResults.results.map((pos) => {
       const candidatesWithBranchVotes = pos.candidates.map((c) => {
         const branchVotes = c.branchBreakdown?.find((b) => b.branchId === branchId)?.votes ?? 0
@@ -219,6 +234,7 @@ export function ReportsContent() {
         ...c,
         voteCount: c.branchFilteredVotes,
         percentage: positionTotal > 0 ? Math.round((c.branchFilteredVotes / positionTotal) * 100 * 100) / 100 : 0,
+        voters: filterVotersForBranch(c.voters),
       }))
       const branchRow = branchBreakdown.find((b) => b.id === branchId)
       const totalEligible = branchRow?.totalMembers ?? 0
@@ -312,6 +328,9 @@ export function ReportsContent() {
           Votes: c.voteCount,
           "Percentage (%)": c.percentage,
         }
+        if (c.voters?.length) {
+          row["Voter member IDs"] = c.voters.map((v) => v.memberId).join("; ")
+        }
         for (const b of branches) {
           row[`Votes (${b.name})`] = c.branchBreakdown?.find((br) => br.branchId === b.id)?.votes ?? 0
         }
@@ -338,6 +357,9 @@ export function ReportsContent() {
           Candidate: c.name,
           Votes: c.voteCount,
           "Percentage (%)": c.percentage,
+        }
+        if (c.voters?.length) {
+          row["Voter member IDs"] = c.voters.map((v) => v.memberId).join("; ")
         }
         for (const b of branches) {
           row[`Votes (${b.name})`] = c.branchBreakdown?.find((br) => br.branchId === b.id)?.votes ?? 0
@@ -754,11 +776,18 @@ export function ReportsContent() {
                   )}
                   {filteredResultsData.results.map((pos) => {
                     const branchesForColumns = electionResults.branchBreakdown ?? []
+                    const showVoterIds = pos.candidates.some((c) => c.voters && c.voters.length > 0)
                     return (
                       <div key={pos.id} className="mb-6">
                         <h4 className="text-md font-medium text-gray-700 mb-2">
                           {pos.title} — {pos.totalVotes} votes ({pos.participationRate}% participation)
                         </h4>
+                        {showVoterIds && (
+                          <p className="text-xs text-gray-500 mb-2">
+                            Voter member IDs (coop ID) list who voted for each candidate — for recount and audit. Staff
+                            access only.
+                          </p>
+                        )}
                         <div className="rounded-md border overflow-x-auto" style={{ borderColor: "#dee2e6" }}>
                           <Table>
                             <TableHeader>
@@ -766,6 +795,11 @@ export function ReportsContent() {
                                 <TableHead>Candidate</TableHead>
                                 <TableHead>Votes</TableHead>
                                 <TableHead>Percentage</TableHead>
+                                {showVoterIds && (
+                                  <TableHead className="min-w-[200px] max-w-md">
+                                    Voter member IDs
+                                  </TableHead>
+                                )}
                                 {branchesForColumns.map((b) => (
                                   <TableHead key={b.id} title={`${b.name} (${b.code})`}>
                                     {b.name}
@@ -779,6 +813,17 @@ export function ReportsContent() {
                                   <TableCell>{c.name}</TableCell>
                                   <TableCell>{c.voteCount}</TableCell>
                                   <TableCell>{c.percentage}%</TableCell>
+                                  {showVoterIds && (
+                                    <TableCell className="align-top text-sm text-gray-700 max-w-md">
+                                      {c.voters && c.voters.length > 0 ? (
+                                        <div className="break-words whitespace-normal leading-relaxed">
+                                          {c.voters.map((v) => v.memberId).join(", ")}
+                                        </div>
+                                      ) : (
+                                        <span className="text-gray-400">—</span>
+                                      )}
+                                    </TableCell>
+                                  )}
                                   {branchesForColumns.map((b) => (
                                     <TableCell key={b.id}>
                                       {c.branchBreakdown?.find((br) => br.branchId === b.id)?.votes ?? 0}

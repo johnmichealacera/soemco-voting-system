@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { UserRole } from "@prisma/client"
 
 export async function GET(
   request: Request,
@@ -11,7 +12,14 @@ export async function GET(
   try {
     // Get user session to determine anonymity permissions
     const session = await getServerSession(authOptions)
-    const isAdmin = session?.user?.role === 'ADMIN'
+    const role = session?.user?.role as UserRole | undefined
+    const isAdmin = role === UserRole.ADMIN
+    /** Staff roles that may need recount data (not public / not plain MEMBER) */
+    const canRevealVoterRoll =
+      role === UserRole.ADMIN ||
+      role === UserRole.BOARD_MEMBER ||
+      role === UserRole.ELECTION_COMMITTEE ||
+      role === UserRole.BRANCH_MANAGER
 
     // Get election with positions and candidates
     const election = await prisma.election.findUnique({
@@ -57,6 +65,8 @@ export async function GET(
         positionId: true,
         member: {
           select: {
+            memberId: true,
+            branchId: true,
             branch: {
               select: {
                 id: true,
@@ -175,6 +185,24 @@ export async function GET(
       return acc
     }, {} as Record<string, Record<string, number>>)
 
+    /** Per candidate: coop member IDs who voted for them (for recount / audit; staff only) */
+    const votesByCandidateKey = votes.reduce(
+      (acc, vote) => {
+        if (!vote.candidateId) return acc
+        const key = `${vote.positionId}-${vote.candidateId}`
+        if (!acc[key]) acc[key] = []
+        acc[key].push({
+          memberId: vote.member.memberId,
+          branchId: vote.member.branchId,
+        })
+        return acc
+      },
+      {} as Record<string, Array<{ memberId: string; branchId: string | null }>>
+    )
+    for (const key of Object.keys(votesByCandidateKey)) {
+      votesByCandidateKey[key].sort((a, b) => a.memberId.localeCompare(b.memberId))
+    }
+
     // Build results structure
     const results = election.positions.map((position) => {
       const totalVotes = positionVoteCounts[position.id] || 0
@@ -248,10 +276,10 @@ export async function GET(
           branchCode: string
           votes: number
         }>
+        voters?: Array<{ memberId: string; branchId: string | null }>
       }> = candidatesWithData.map((candidate, sortedIndex) => {
-        // Determine if we should show real name or anonymous name
-        // Show real names only when election is NOT anonymous
-        const shouldShowRealName = !election.isAnonymous
+        const key = `${position.id}-${candidate.id}`
+        const shouldShowRealName = isAdmin || !election.isAnonymous
         const displayName = shouldShowRealName
           ? (candidate.user?.name || candidate.user?.email || "Unknown")
           : getAnonymousName(sortedIndex)
@@ -267,6 +295,9 @@ export async function GET(
           voteCount: candidate.voteCount,
           percentage: candidate.percentage,
           branchBreakdown: candidate.branchBreakdown,
+          ...(canRevealVoterRoll && votesByCandidateKey[key]
+            ? { voters: votesByCandidateKey[key] }
+            : {}),
         }
       })
 
