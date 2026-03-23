@@ -28,6 +28,7 @@ interface Position {
   title: string
   description: string | null
   order: number
+  maxSelectableCandidates: number
   election: {
     id: string
     title: string
@@ -93,6 +94,7 @@ export function PositionForm({ position, open, onClose }: PositionFormProps) {
     title: "",
     description: "",
     order: 0,
+    maxSelectableCandidates: 1,
   })
 
   useEffect(() => {
@@ -102,6 +104,7 @@ export function PositionForm({ position, open, onClose }: PositionFormProps) {
         title: position.title,
         description: position.description || "",
         order: position.order,
+        maxSelectableCandidates: position.maxSelectableCandidates || 1,
       })
     } else {
       setFormData({
@@ -109,6 +112,7 @@ export function PositionForm({ position, open, onClose }: PositionFormProps) {
         title: "",
         description: "",
         order: 0,
+        maxSelectableCandidates: 1,
       })
     }
   }, [position, open])
@@ -144,6 +148,7 @@ export function PositionForm({ position, open, onClose }: PositionFormProps) {
       title: formData.title,
       description: formData.description || null,
       order: formData.order,
+      maxSelectableCandidates: formData.maxSelectableCandidates,
       electionId: formData.electionId && formData.electionId !== "None Selected" 
         ? formData.electionId 
         : null,
@@ -241,6 +246,26 @@ export function PositionForm({ position, open, onClose }: PositionFormProps) {
               />
               <p className="text-xs text-gray-500">
                 Lower numbers appear first. Leave as 0 for automatic ordering.
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="maxSelectableCandidates">Max Selectable Candidates</Label>
+              <Input
+                id="maxSelectableCandidates"
+                type="number"
+                min="1"
+                value={formData.maxSelectableCandidates}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    maxSelectableCandidates: Math.max(1, parseInt(e.target.value, 10) || 1),
+                  })
+                }
+                placeholder="1"
+              />
+              <p className="text-xs text-gray-500">
+                Default is 1. Set higher values (e.g., 12 for senator) to allow multiple selections.
               </p>
             </div>
           </div>

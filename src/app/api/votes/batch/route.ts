@@ -90,8 +90,103 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate a unique vote token for each vote
-    // Create all votes in a transaction
+    const positions = await prisma.position.findMany({
+      where: { electionId },
+      select: {
+        id: true,
+        maxSelectableCandidates: true,
+      },
+    })
+    const positionMap = new Map(positions.map((position) => [position.id, position]))
+
+    const positionCounts: Record<string, number> = {}
+    const seenCandidateKeys = new Set<string>()
+    for (const vote of votes as Array<{ positionId: string; candidateId: string }>) {
+      const position = positionMap.get(vote.positionId)
+      if (!position) {
+        return NextResponse.json(
+          { error: "One or more votes contain invalid positions for this election" },
+          { status: 400 }
+        )
+      }
+
+      if (!vote.candidateId) {
+        return NextResponse.json(
+          { error: "Candidate selection is required for each vote" },
+          { status: 400 }
+        )
+      }
+
+      const candidateKey = `${vote.positionId}-${vote.candidateId}`
+      if (seenCandidateKeys.has(candidateKey)) {
+        return NextResponse.json(
+          { error: "Duplicate candidate selection detected for a position" },
+          { status: 400 }
+        )
+      }
+      seenCandidateKeys.add(candidateKey)
+
+      positionCounts[vote.positionId] = (positionCounts[vote.positionId] || 0) + 1
+      if (positionCounts[vote.positionId] > position.maxSelectableCandidates) {
+        return NextResponse.json(
+          {
+            error: `Selection limit exceeded for position ${vote.positionId}. Max allowed is ${position.maxSelectableCandidates}.`,
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    const positionIds = [...new Set(votes.map((vote: { positionId: string }) => vote.positionId))]
+    const candidateIds = [...new Set(votes.map((vote: { candidateId: string }) => vote.candidateId))]
+
+    const validCandidates = await prisma.candidate.findMany({
+      where: {
+        electionId,
+        positionId: { in: positionIds },
+        id: { in: candidateIds },
+        status: "approved",
+      },
+      select: {
+        id: true,
+        positionId: true,
+      },
+    })
+    const validCandidateKeys = new Set(
+      validCandidates.map((candidate) => `${candidate.positionId}-${candidate.id}`)
+    )
+
+    for (const vote of votes as Array<{ positionId: string; candidateId: string }>) {
+      if (!validCandidateKeys.has(`${vote.positionId}-${vote.candidateId}`)) {
+        return NextResponse.json(
+          { error: "One or more selected candidates are invalid or not approved for their positions" },
+          { status: 400 }
+        )
+      }
+    }
+
+    let expectedVoteCount = 0
+    for (const position of positions) {
+      const selectedCount = positionCounts[position.id] || 0
+      if (selectedCount !== position.maxSelectableCandidates) {
+        return NextResponse.json(
+          {
+            error: `Please select exactly ${position.maxSelectableCandidates} candidate(s) for position ${position.id}.`,
+          },
+          { status: 400 }
+        )
+      }
+      expectedVoteCount += selectedCount
+    }
+
+    if (expectedVoteCount !== votes.length) {
+      return NextResponse.json(
+        { error: "Vote payload does not match the required number of selections" },
+        { status: 400 }
+      )
+    }
+
+    // Generate a unique vote token for each vote and create all votes in a transaction
     const createdVotes = await prisma.$transaction(
       votes.map((vote: { positionId: string; candidateId: string }) =>
         prisma.vote.create({

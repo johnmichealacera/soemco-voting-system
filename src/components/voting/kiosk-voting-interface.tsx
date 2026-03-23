@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -53,7 +53,7 @@ export function KioskVotingInterface() {
   const { data: session } = useSession()
   const [selectedElectionId, setSelectedElectionId] = useState<string | null>(null)
   const [selectedCandidates, setSelectedCandidates] = useState<
-    Record<string, string>
+    Record<string, string[]>
   >({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showReview, setShowReview] = useState(false)
@@ -282,14 +282,19 @@ export function KioskVotingInterface() {
     // Validate all positions have selections
     const missingPositions: string[] = []
     for (const position of election.positions) {
-      if (!selectedCandidates[position.id]) {
+      const requiredSelections = Math.min(
+        Math.max(position.maxSelectableCandidates ?? 1, 1),
+        position.candidates?.filter((c: any) => c.status === "approved").length ?? 0
+      )
+      const selectedCount = selectedCandidates[position.id]?.length ?? 0
+      if (selectedCount !== requiredSelections) {
         missingPositions.push(position.title)
       }
     }
 
     if (missingPositions.length > 0) {
       toast.error(
-        `Please select a candidate for: ${missingPositions.join(", ")}`
+        `Please complete your selections for: ${missingPositions.join(", ")}`
       )
       return
     }
@@ -303,10 +308,12 @@ export function KioskVotingInterface() {
 
     try {
       // Prepare all votes
-      const votes = election.positions.map((position: any) => ({
-        positionId: position.id,
-        candidateId: selectedCandidates[position.id],
-      }))
+      const votes = election.positions.flatMap((position: any) =>
+        (selectedCandidates[position.id] || []).map((candidateId) => ({
+          positionId: position.id,
+          candidateId,
+        }))
+      )
 
       // Cast all votes in a single batch request
       await voteMutation.mutateAsync({
@@ -340,44 +347,54 @@ export function KioskVotingInterface() {
 
             <div className="space-y-6">
               {election.positions?.map((position: any) => {
-                const selectedCandidateId = selectedCandidates[position.id]
-                const selectedCandidate = position.candidates?.find((c: any) => c.id === selectedCandidateId)
+                const selectedCandidateIds = selectedCandidates[position.id] || []
+                const selectedCandidatesForPosition = position.candidates?.filter((c: any) =>
+                  selectedCandidateIds.includes(c.id)
+                ) || []
+                const maxSelections = Math.max(position.maxSelectableCandidates ?? 1, 1)
 
                 return (
                   <div key={position.id} className="rounded-lg border p-6" style={{ borderColor: '#dee2e6' }}>
                     <h3 className="text-xl font-bold mb-4" style={{ color: '#2c3e50' }}>
                       {position.title}
                     </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Selected {selectedCandidatesForPosition.length} of {maxSelections}
+                    </p>
 
-                    {selectedCandidate && (
-                      <div className="flex items-start space-x-4">
-                        <div className="flex-shrink-0">
-                          {selectedCandidate.imageUrl ? (
-                            <div className="relative w-16 h-16 rounded-full overflow-hidden border-2" style={{ borderColor: '#3498db' }}>
-                              <Image
-                                src={selectedCandidate.imageUrl}
-                                alt={selectedCandidate.user?.name || "Candidate"}
-                                fill
-                                className="object-cover"
-                                sizes="64px"
-                              />
+                    {selectedCandidatesForPosition.length > 0 && (
+                      <div className="space-y-4">
+                        {selectedCandidatesForPosition.map((selectedCandidate: any) => (
+                          <div key={selectedCandidate.id} className="flex items-start space-x-4">
+                            <div className="flex-shrink-0">
+                              {selectedCandidate.imageUrl ? (
+                                <div className="relative w-16 h-16 rounded-full overflow-hidden border-2" style={{ borderColor: '#3498db' }}>
+                                  <Image
+                                    src={selectedCandidate.imageUrl}
+                                    alt={selectedCandidate.user?.name || "Candidate"}
+                                    fill
+                                    className="object-cover"
+                                    sizes="64px"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center border-2" style={{ borderColor: '#dee2e6' }}>
+                                  <User className="w-8 h-8 text-gray-400" />
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center border-2" style={{ borderColor: '#dee2e6' }}>
-                              <User className="w-8 h-8 text-gray-400" />
+                            <div className="flex-1">
+                              <p className="font-bold text-lg" style={{ color: '#2c3e50' }}>
+                                {selectedCandidate.user?.name || selectedCandidate.user?.email || "Unknown"}
+                              </p>
+                              {selectedCandidate.bio && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {selectedCandidate.bio}
+                                </p>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-bold text-lg" style={{ color: '#2c3e50' }}>
-                            {selectedCandidate.user?.name || selectedCandidate.user?.email || "Unknown"}
-                          </p>
-                          {selectedCandidate.bio && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              {selectedCandidate.bio}
-                            </p>
-                          )}
-                        </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -419,31 +436,41 @@ export function KioskVotingInterface() {
         <Card key={position.id} className="border-0 shadow-md">
           <CardContent className="p-6 bg-white">
             <div className="mb-6">
+              {(() => {
+                const approvedCandidates = position.candidates?.filter((c: any) => c.status === "approved") || []
+                const maxSelections = Math.min(
+                  Math.max(position.maxSelectableCandidates ?? 1, 1),
+                  approvedCandidates.length
+                )
+                const selectedCount = selectedCandidates[position.id]?.length || 0
+                return (
+                  <>
               <h2 className="text-2xl font-bold mb-2" style={{ color: '#2c3e50' }}>
                 Vote for {position.title}
               </h2>
               <p className="text-gray-600">
-                Select your candidate for this position
+                Select {maxSelections} candidate{maxSelections > 1 ? "s" : ""} for this position ({selectedCount}/{maxSelections} selected)
               </p>
+                  </>
+                )
+              })()}
             </div>
 
             {position.candidates && position.candidates.length > 0 ? (
               election.voteType === VoteType.SINGLE_CHOICE ? (
-                <RadioGroup
-                  value={selectedCandidates[position.id] || ""}
-                  onValueChange={(value) =>
-                    setSelectedCandidates((prev) => ({
-                      ...prev,
-                      [position.id]: value,
-                    }))
-                  }
-                  className="space-y-4"
-                >
-                  {position.candidates
-                    .filter((c: any) => c.status === "approved")
-                    .map((candidate: any) => {
+                <div className="space-y-4">
+                  {(() => {
+                    const approvedCandidates = position.candidates.filter((c: any) => c.status === "approved")
+                    const maxSelections = Math.min(
+                      Math.max(position.maxSelectableCandidates ?? 1, 1),
+                      approvedCandidates.length
+                    )
+
+                    return approvedCandidates.map((candidate: any) => {
+                      const selectedForPosition = selectedCandidates[position.id] || []
+                      const isSelected = selectedForPosition.includes(candidate.id)
+                      const isAtLimit = !isSelected && selectedForPosition.length >= maxSelections
                       const candidateName = candidate.user?.name || candidate.user?.email || "Unknown"
-                      const firstName = candidateName.split(' ')[0]
 
                       return (
                         <div
@@ -452,10 +479,28 @@ export function KioskVotingInterface() {
                           style={{ borderColor: '#dee2e6' }}
                         >
                           <div className="flex items-center space-x-4 flex-1">
-                            <RadioGroupItem
-                              value={candidate.id}
+                            <Checkbox
+                              checked={isSelected}
                               id={`candidate-${candidate.id}`}
-                              className="mt-1"
+                              disabled={isAtLimit}
+                              onCheckedChange={(checked) => {
+                                setSelectedCandidates((prev) => {
+                                  const current = prev[position.id] || []
+                                  if (checked) {
+                                    if (current.includes(candidate.id) || current.length >= maxSelections) {
+                                      return prev
+                                    }
+                                    return {
+                                      ...prev,
+                                      [position.id]: [...current, candidate.id],
+                                    }
+                                  }
+                                  return {
+                                    ...prev,
+                                    [position.id]: current.filter((id) => id !== candidate.id),
+                                  }
+                                })
+                              }}
                             />
                             {/* Candidate Image */}
                             <div className="flex-shrink-0">
@@ -504,8 +549,9 @@ export function KioskVotingInterface() {
                           </div>
                         </div>
                       )
-                    })}
-                </RadioGroup>
+                    })
+                  })()}
+                </div>
               ) : (
                 <p className="text-sm text-gray-500 italic">
                   {election.voteType.replace("_", " ")} voting not yet implemented

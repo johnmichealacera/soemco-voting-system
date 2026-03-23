@@ -202,6 +202,7 @@ model Position {
   title       String
   description String?  @db.Text
   order       Int      @default(0)
+  maxSelectableCandidates Int @default(1)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -254,7 +255,7 @@ model Vote {
   position      Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
   member        MemberProfile @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
-  @@unique([electionId, memberId, positionId]) // One vote per member per position per election
+  @@unique([electionId, memberId, positionId, candidateId]) // One vote per candidate per position per election
   @@index([electionId])
   @@index([voteToken])
   @@index([memberId])

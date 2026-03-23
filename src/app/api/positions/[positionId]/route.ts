@@ -70,7 +70,17 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { title, description, order, electionId } = body
+    const { title, description, order, electionId, maxSelectableCandidates } = body
+    if (
+      maxSelectableCandidates !== undefined &&
+      (!Number.isInteger(maxSelectableCandidates) || maxSelectableCandidates < 1)
+    ) {
+      return NextResponse.json(
+        { error: "maxSelectableCandidates must be an integer greater than or equal to 1" },
+        { status: 400 }
+      )
+    }
+
 
     const position = await prisma.position.findUnique({
       where: { id: positionId },
@@ -101,6 +111,9 @@ export async function PUT(
     if (order !== undefined) updateData.order = order
     if (electionId !== undefined) {
       updateData.electionId = electionId || null
+    }
+    if (maxSelectableCandidates !== undefined) {
+      updateData.maxSelectableCandidates = maxSelectableCandidates
     }
 
     const updatedPosition = await prisma.position.update({

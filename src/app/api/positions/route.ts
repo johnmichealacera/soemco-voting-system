@@ -61,7 +61,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { electionId, title, description, order } = body
+    const { electionId, title, description, order, maxSelectableCandidates } = body
+    if (
+      maxSelectableCandidates !== undefined &&
+      (!Number.isInteger(maxSelectableCandidates) || maxSelectableCandidates < 1)
+    ) {
+      return NextResponse.json(
+        { error: "maxSelectableCandidates must be an integer greater than or equal to 1" },
+        { status: 400 }
+      )
+    }
+
 
     // Validate required fields
     if (!title) {
@@ -98,6 +108,7 @@ export async function POST(request: Request) {
         title,
         description: description || null,
         order: order !== undefined ? order : (maxOrder?.order ?? -1) + 1,
+        maxSelectableCandidates: maxSelectableCandidates ?? 1,
       },
       include: {
         election: {

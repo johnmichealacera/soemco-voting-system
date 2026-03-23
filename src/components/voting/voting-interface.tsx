@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -36,7 +36,7 @@ export function VotingInterface({ electionId }: { electionId: string }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [selectedCandidates, setSelectedCandidates] = useState<
-    Record<string, string>
+    Record<string, string[]>
   >({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -120,14 +120,20 @@ export function VotingInterface({ electionId }: { electionId: string }) {
     // Validate all positions have selections
     const missingPositions: string[] = []
     for (const position of election.positions) {
-      if (!selectedCandidates[position.id]) {
+      const approvedCount = position.candidates?.filter((c: any) => c.status === "approved").length ?? 0
+      const requiredSelections = Math.min(
+        Math.max(position.maxSelectableCandidates ?? 1, 1),
+        approvedCount
+      )
+      const selectedCount = selectedCandidates[position.id]?.length ?? 0
+      if (selectedCount !== requiredSelections) {
         missingPositions.push(position.title)
       }
     }
 
     if (missingPositions.length > 0) {
       toast.error(
-        `Please select a candidate for: ${missingPositions.join(", ")}`
+        `Please complete your selections for: ${missingPositions.join(", ")}`
       )
       return
     }
@@ -136,10 +142,12 @@ export function VotingInterface({ electionId }: { electionId: string }) {
 
     try {
       // Prepare all votes
-      const votes = election.positions.map((position: any) => ({
-        positionId: position.id,
-        candidateId: selectedCandidates[position.id],
-      }))
+      const votes = election.positions.flatMap((position: any) =>
+        (selectedCandidates[position.id] || []).map((candidateId) => ({
+          positionId: position.id,
+          candidateId,
+        }))
+      )
 
       // Cast all votes in a single batch request
       await voteMutation.mutateAsync({
@@ -181,27 +189,47 @@ export function VotingInterface({ electionId }: { electionId: string }) {
 
               {position.candidates && position.candidates.length > 0 ? (
                 election.voteType === VoteType.SINGLE_CHOICE ? (
-                  <RadioGroup
-                    value={selectedCandidates[position.id] || ""}
-                    onValueChange={(value) =>
-                      setSelectedCandidates((prev) => ({
-                        ...prev,
-                        [position.id]: value,
-                      }))
-                    }
-                  >
-                    {position.candidates
-                      .filter((c: any) => c.status === "approved")
-                      .map((candidate: any) => (
+                  <div className="space-y-3">
+                    {(() => {
+                      const approvedCandidates = position.candidates.filter((c: any) => c.status === "approved")
+                      const maxSelections = Math.min(
+                        Math.max(position.maxSelectableCandidates ?? 1, 1),
+                        approvedCandidates.length
+                      )
+                      const selectedForPosition = selectedCandidates[position.id] || []
+
+                      return approvedCandidates.map((candidate: any) => (
                         <div
                           key={candidate.id}
                           className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-blue-50 transition-colors cursor-pointer"
                           style={{ borderColor: '#dee2e6' }}
                         >
-                          <RadioGroupItem
-                            value={candidate.id}
+                          <Checkbox
+                            checked={selectedForPosition.includes(candidate.id)}
                             id={`candidate-${candidate.id}`}
                             className="mt-1"
+                            disabled={
+                              !selectedForPosition.includes(candidate.id) &&
+                              selectedForPosition.length >= maxSelections
+                            }
+                            onCheckedChange={(checked) => {
+                              setSelectedCandidates((prev) => {
+                                const current = prev[position.id] || []
+                                if (checked) {
+                                  if (current.includes(candidate.id) || current.length >= maxSelections) {
+                                    return prev
+                                  }
+                                  return {
+                                    ...prev,
+                                    [position.id]: [...current, candidate.id],
+                                  }
+                                }
+                                return {
+                                  ...prev,
+                                  [position.id]: current.filter((id) => id !== candidate.id),
+                                }
+                              })
+                            }}
                           />
                           <Label
                             htmlFor={`candidate-${candidate.id}`}
@@ -224,8 +252,9 @@ export function VotingInterface({ electionId }: { electionId: string }) {
                             </div>
                           </Label>
                         </div>
-                      ))}
-                  </RadioGroup>
+                      ))
+                    })()}
+                  </div>
                 ) : (
                   <p className="text-sm text-gray-500 italic">
                     {election.voteType.replace("_", " ")} voting not yet implemented

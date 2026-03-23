@@ -28,6 +28,7 @@ interface Position {
   title: string
   description: string | null
   order: number
+  maxSelectableCandidates: number
   createdAt: Date | string
   election: {
     id: string
@@ -122,6 +123,7 @@ export function PositionsTable() {
               <TableHead>Election</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Order</TableHead>
+              <TableHead>Max Picks</TableHead>
               <TableHead>Candidates</TableHead>
               <TableHead>Votes</TableHead>
               <TableHead>Created</TableHead>
@@ -154,6 +156,11 @@ export function PositionsTable() {
                 <TableCell className="text-center">
                   <span className="font-semibold" style={{ color: '#2c3e50' }}>
                     {position.order}
+                  </span>
+                </TableCell>
+                <TableCell className="text-center">
+                  <span className="font-semibold" style={{ color: '#2c3e50' }}>
+                    {position.maxSelectableCandidates}
                   </span>
                 </TableCell>
                 <TableCell className="text-center">
