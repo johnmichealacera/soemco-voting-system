@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
@@ -182,6 +182,7 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const imageUploadPromiseRef = useRef<Promise<{ url: string }> | null>(null)
 
   // Search state for member dropdown
   const [memberSearchOpen, setMemberSearchOpen] = useState(false)
@@ -309,7 +310,7 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
 
     // Upload to Cloudinary
     setIsUploadingImage(true)
-    try {
+    const uploadPromise = (async () => {
       const cloudinaryUrl = process.env.NEXT_PUBLIC_CLOUDINARY_URL || ''
       const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || ''
       const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || ''
@@ -318,25 +319,41 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
         throw new Error('Cloudinary configuration is missing')
       }
 
-      const result = await uploadToCloudinary(file, {
+      return uploadToCloudinary(file, {
         cloudinaryUrl,
         uploadPreset,
         apiKey,
       })
+    })()
+    imageUploadPromiseRef.current = uploadPromise
+
+    try {
+      const result = await uploadPromise
+      if (imageUploadPromiseRef.current !== uploadPromise) {
+        return
+      }
 
       setFormData((prev) => ({ ...prev, imageUrl: result.url }))
       toast.success('Image uploaded successfully')
     } catch (error: any) {
+      if (imageUploadPromiseRef.current !== uploadPromise) {
+        return
+      }
       toast.error(error.message || 'Failed to upload image')
       setImageFile(null)
       setImagePreview(null)
     } finally {
-      setIsUploadingImage(false)
+      if (imageUploadPromiseRef.current === uploadPromise) {
+        imageUploadPromiseRef.current = null
+        setIsUploadingImage(false)
+      }
     }
   }
 
   // Handle image removal
   const handleRemoveImage = () => {
+    imageUploadPromiseRef.current = null
+    setIsUploadingImage(false)
     setImageFile(null)
     setImagePreview(null)
     setFormData((prev) => ({ ...prev, imageUrl: "" }))
@@ -366,12 +383,24 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    let imageUrlToSave = formData.imageUrl
+
+    if (imageUploadPromiseRef.current) {
+      toast.info("Waiting for image upload to finish...")
+      try {
+        const result = await imageUploadPromiseRef.current
+        imageUrlToSave = result.url
+      } catch {
+        toast.error("Image upload failed. Please upload the image again.")
+        return
+      }
+    }
 
     const data: any = {
       status: formData.status,
-      imageUrl: formData.imageUrl && formData.imageUrl.trim() !== "" ? formData.imageUrl : null,
+      imageUrl: imageUrlToSave && imageUrlToSave.trim() !== "" ? imageUrlToSave : null,
       bio: formData.bio || null,
       qualifications: formData.qualifications || null,
     }
@@ -677,12 +706,14 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
             <Button
               type="submit"
               style={{ backgroundColor: '#3498db' }}
-              disabled={isLoading}
+              disabled={isLoading || isUploadingImage}
             >
               {isLoading
                 ? isEditing
                   ? "Updating..."
                   : "Creating..."
+                : isUploadingImage
+                ? "Uploading Image..."
                 : isEditing
                 ? "Update Candidate"
                 : "Create Candidate"}
