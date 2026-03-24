@@ -95,11 +95,16 @@ function isIdHeader(val: string): boolean {
   )
 }
 
-const MEMBER_ID_PATTERN = /^\d{2}-\d{5,7}-\d{1,2}$/
+const MEMBER_ID_PATTERN = /^\d{2}-\d{3,8}(?:-\d{1,2})?$/
 
 function looksLikeMemberId(val: unknown): boolean {
   if (val == null) return false
-  return MEMBER_ID_PATTERN.test(String(val).trim())
+  const raw = String(val).trim()
+  if (!raw) return false
+  if (MEMBER_ID_PATTERN.test(raw)) return true
+  if (/^\d{5,20}$/.test(raw)) return true
+  if (/^[A-Za-z0-9][A-Za-z0-9\-_/]{2,30}$/.test(raw)) return true
+  return false
 }
 
 function looksLikePersonName(val: unknown): boolean {

@@ -20,6 +20,17 @@ interface MemberData {
   rowNum: number
 }
 
+const MEMBER_ID_PATTERN = /^\d{2}-\d{3,8}(?:-\d{1,2})?$/
+
+function normalizeMemberId(value: unknown): string | null {
+  const raw = String(value || "").trim()
+  if (!raw) return null
+  if (MEMBER_ID_PATTERN.test(raw)) return raw
+  if (/^\d{5,20}$/.test(raw)) return raw
+  if (/^[A-Za-z0-9][A-Za-z0-9\-_/]{2,30}$/.test(raw)) return raw
+  return null
+}
+
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -241,7 +252,7 @@ export async function POST(request: Request) {
         const email = emailIdx !== -1 ? String(row[emailIdx] || "").trim().toLowerCase() : null
         const address = addressIdx !== -1 ? String(row[addressIdx] || "").trim() || null : null
         const phoneNumber = phoneIdx !== -1 ? String(row[phoneIdx] || "").trim() || null : null
-        const existingMemberId = memberIdIdx !== -1 ? String(row[memberIdIdx] || "").trim() : null
+        const existingMemberId = memberIdIdx !== -1 ? normalizeMemberId(row[memberIdIdx]) : null
         const branchName = branchIdx !== -1 ? String(row[branchIdx] || "").trim() : null
 
         // Generate email if not provided - ensure uniqueness
