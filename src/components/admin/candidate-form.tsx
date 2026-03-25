@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils"
 import { uploadToCloudinary } from "@/lib/cloudinary-upload"
 import Image from "next/image"
 
+type EnhanceField = "bio" | "qualifications"
+
 interface Candidate {
   id: string
   electionId: string
@@ -140,6 +142,19 @@ async function updateCandidate(id: string, data: any) {
   return res.json()
 }
 
+async function enhanceCandidateText(field: EnhanceField, text: string): Promise<string> {
+  const res = await fetch("/api/ai/enhance-candidate-text", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ field, text }),
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.error || "Failed to enhance text")
+  }
+  return data.enhancedText
+}
+
 export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) {
   const queryClient = useQueryClient()
   const isEditing = !!candidate
@@ -187,6 +202,7 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
   // Search state for member dropdown
   const [memberSearchOpen, setMemberSearchOpen] = useState(false)
   const [memberSearchQuery, setMemberSearchQuery] = useState("")
+  const [enhancingField, setEnhancingField] = useState<EnhanceField | null>(null)
 
   // Filter members based on search query and exclude existing candidates
   const filteredMembers = useMemo(() => {
@@ -416,6 +432,28 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
       data.positionId = formData.positionId
       data.userId = formData.userId
       createMutation.mutate(data)
+    }
+  }
+
+  const handleEnhance = async (field: EnhanceField) => {
+    const currentValue = field === "bio" ? formData.bio : formData.qualifications
+    if (!currentValue || currentValue.trim().length < 10) {
+      toast.error("Please add a longer draft text first.")
+      return
+    }
+
+    setEnhancingField(field)
+    try {
+      const enhancedText = await enhanceCandidateText(field, currentValue)
+      setFormData((prev) => ({
+        ...prev,
+        [field]: enhancedText,
+      }))
+      toast.success(`${field === "bio" ? "Bio" : "Qualifications"} enhanced successfully`)
+    } catch (error: any) {
+      toast.error(error.message || "Failed to enhance text")
+    } finally {
+      setEnhancingField(null)
     }
   }
 
@@ -669,7 +707,18 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="bio">Bio</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEnhance("bio")}
+                  disabled={enhancingField !== null || isLoading}
+                >
+                  {enhancingField === "bio" ? "Enhancing..." : "Enhance Bio"}
+                </Button>
+              </div>
               <textarea
                 id="bio"
                 value={formData.bio}
@@ -682,7 +731,18 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="qualifications">Qualifications</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="qualifications">Qualifications</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEnhance("qualifications")}
+                  disabled={enhancingField !== null || isLoading}
+                >
+                  {enhancingField === "qualifications" ? "Enhancing..." : "Enhance Qualifications"}
+                </Button>
+              </div>
               <textarea
                 id="qualifications"
                 value={formData.qualifications}
