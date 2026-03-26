@@ -162,8 +162,10 @@ export function ElectionsTable() {
   const anonymityMutation = useMutation({
     mutationFn: ({ id, isAnonymous }: { id: string; isAnonymous: boolean }) =>
       toggleElectionAnonymity(id, isAnonymous),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["elections"] })
+      queryClient.invalidateQueries({ queryKey: ["election-results"] })
+      queryClient.invalidateQueries({ queryKey: ["report-results", variables.id] })
       toast.success(`Election ${data.isAnonymous ? 'made anonymous' : 'revealed'}`)
     },
     onError: (error: Error) => {

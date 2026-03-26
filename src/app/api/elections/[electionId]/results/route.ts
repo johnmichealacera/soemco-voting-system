@@ -12,7 +12,15 @@ export async function GET(
   try {
     // Get user session to determine anonymity permissions
     const session = await getServerSession(authOptions)
-    const role = session?.user?.role as UserRole | undefined
+    let role = session?.user?.role as UserRole | undefined
+    // JWT may omit role on older sessions; resolve from DB so staff always get correct masking
+    if (session?.user?.id && (role === undefined || role === null)) {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true },
+      })
+      if (dbUser) role = dbUser.role
+    }
     const isAdmin = role === UserRole.ADMIN
     /** Staff roles that may need recount data (not public / not plain MEMBER) */
     const canRevealVoterRoll =
@@ -279,7 +287,8 @@ export async function GET(
         voters?: Array<{ memberId: string; branchId: string | null }>
       }> = candidatesWithData.map((candidate, sortedIndex) => {
         const key = `${position.id}-${candidate.id}`
-        const shouldShowRealName = isAdmin || !election.isAnonymous
+        // Candidate identities are visible only when anonymity has been revealed globally
+        const shouldShowRealName = !election.isAnonymous
         const displayName = shouldShowRealName
           ? (candidate.user?.name || candidate.user?.email || "Unknown")
           : getAnonymousName(sortedIndex)
