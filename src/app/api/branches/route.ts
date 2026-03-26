@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
+import { attachInferredBranchManagers } from "@/lib/branch-manager-sync"
 
 export async function GET() {
   try {
@@ -36,7 +37,8 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json(branches)
+    const enriched = await attachInferredBranchManagers(branches)
+    return NextResponse.json(enriched)
   } catch (error: any) {
     console.error("Error fetching branches:", error)
     return NextResponse.json(

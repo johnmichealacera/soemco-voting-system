@@ -328,6 +328,8 @@ export function MembersTable() {
       updateUserRole(userId, role),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["members"] })
+      queryClient.invalidateQueries({ queryKey: ["branches"] })
+      queryClient.invalidateQueries({ queryKey: ["branch-managers"] })
       toast.success("User role updated successfully")
     },
     onError: (error: Error) => {
@@ -340,6 +342,8 @@ export function MembersTable() {
       bulkUpdateUserRoles(userIds, role),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["members"] })
+      queryClient.invalidateQueries({ queryKey: ["branches"] })
+      queryClient.invalidateQueries({ queryKey: ["branch-managers"] })
       setSelectedMembers(new Set())
       toast.success(data.message || "User roles updated successfully")
     },
@@ -379,6 +383,16 @@ export function MembersTable() {
   const handleSetAsBranchManager = (userId: string) => {
     if (confirm("Are you sure you want to set this user as a Branch Manager?")) {
       roleMutation.mutate({ userId, role: UserRole.BRANCH_MANAGER })
+    }
+  }
+
+  const handleDemoteBranchManager = (userId: string) => {
+    if (
+      confirm(
+        "Demote this user to Member? Their branch manager assignment will be removed."
+      )
+    ) {
+      roleMutation.mutate({ userId, role: UserRole.MEMBER })
     }
   }
 
@@ -845,6 +859,13 @@ export function MembersTable() {
                               >
                                 <Building2 className="mr-2 h-4 w-4" />
                                 Set as Branch Manager
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDemoteBranchManager(member.user.id)}
+                                disabled={member.user.role !== UserRole.BRANCH_MANAGER}
+                              >
+                                <UserMinus className="mr-2 h-4 w-4" />
+                                Demote to Member
                               </DropdownMenuItem>
                             </>
                           )}

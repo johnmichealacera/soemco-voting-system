@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { syncBranchForUserRoleChange } from "@/lib/branch-manager-sync"
 
 export async function PUT(request: NextRequest) {
   try {
@@ -32,7 +33,22 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Only administrators can set branch manager role" }, { status: 403 })
     }
 
-    // Update user roles in bulk
+    // Only ADMIN can demote any branch manager in bulk
+    if (role !== UserRole.BRANCH_MANAGER && session.user.role !== UserRole.ADMIN) {
+      const bmCount = await prisma.user.count({
+        where: {
+          id: { in: userIds },
+          role: UserRole.BRANCH_MANAGER,
+        },
+      })
+      if (bmCount > 0) {
+        return NextResponse.json(
+          { error: "Only administrators can demote branch managers" },
+          { status: 403 }
+        )
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.user.updateMany({
         where: {
@@ -42,6 +58,9 @@ export async function PUT(request: NextRequest) {
         },
         data: { role },
       })
+      for (const uid of userIds) {
+        await syncBranchForUserRoleChange(tx, uid, role)
+      }
     })
 
     return NextResponse.json({

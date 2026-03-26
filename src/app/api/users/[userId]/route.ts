@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { syncBranchForUserRoleChange } from "@/lib/branch-manager-sync"
 
 export async function PUT(
   request: NextRequest,
@@ -32,26 +33,53 @@ export async function PUT(
       return NextResponse.json({ error: "Only administrators can set branch manager role" }, { status: 403 })
     }
 
-    // Update the user role
-    const updatedUser = await prisma.user.update({
+    const existing = await prisma.user.findUnique({
       where: { id: userId },
-      data: { role },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        memberProfile: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            memberId: true,
-            status: true,
+      select: { role: true },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Only ADMIN can demote a branch manager to another role
+    if (
+      existing.role === UserRole.BRANCH_MANAGER &&
+      role !== UserRole.BRANCH_MANAGER &&
+      session.user.role !== UserRole.ADMIN
+    ) {
+      return NextResponse.json(
+        { error: "Only administrators can demote branch managers" },
+        { status: 403 }
+      )
+    }
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { role },
+      })
+      await syncBranchForUserRoleChange(tx, userId, role)
+
+      return tx.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          createdAt: true,
+          memberProfile: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              memberId: true,
+              status: true,
+            },
           },
         },
-      },
+      })
     })
 
     return NextResponse.json(updatedUser)
