@@ -314,6 +314,7 @@ export async function GET(
         id: position.id,
         title: position.title,
         description: position.description,
+        maxSelectableCandidates: position.maxSelectableCandidates,
         totalVotes,
         totalEligibleMembers,
         participationRate: totalEligibleMembers > 0 

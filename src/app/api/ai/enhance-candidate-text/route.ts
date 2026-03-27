@@ -7,16 +7,16 @@ type EnhanceField = "bio" | "qualifications"
 
 function buildSystemPrompt(field: EnhanceField): string {
   if (field === "bio") {
-    return "You are an expert election communications editor. Improve candidate biography text for clarity, professionalism, and readability while preserving facts exactly. Do not invent achievements, dates, titles, or affiliations. Return only plain text."
+    return "You are an expert election communications editor. Improve candidate biography text for clarity, professionalism, and readability while preserving facts exactly. Do not invent achievements, dates, titles, or affiliations. Output plain text only, with a strict maximum of 2 sentences total."
   }
-  return "You are an expert election communications editor. Improve candidate qualifications text to be concise, professional, and impact-oriented while preserving facts exactly. Do not invent credentials, awards, or experience. Return only plain text."
+  return "You are an expert election communications editor. Improve candidate qualifications text to be concise, professional, and impact-oriented while preserving facts exactly. Do not invent credentials, awards, or experience. Output plain text only, with a strict maximum of 2 sentences total."
 }
 
 function buildUserPrompt(field: EnhanceField, text: string): string {
   if (field === "bio") {
-    return `Enhance this candidate bio. Keep it factual and polished, around 90-140 words, and suitable for an election profile:\n\n${text}`
+    return `Enhance this candidate bio. Keep it factual and polished, and return only 1-2 concise sentences (about 20-40 words total), suitable for election cards/pages:\n\n${text}`
   }
-  return `Enhance these candidate qualifications. Keep it factual and polished, around 70-120 words, and suitable for an election profile:\n\n${text}`
+  return `Enhance these candidate qualifications. Keep it factual and polished, and return only 1-2 concise sentences (about 20-40 words total), suitable for election cards/pages:\n\n${text}`
 }
 
 export async function POST(request: Request) {
