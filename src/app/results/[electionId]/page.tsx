@@ -321,27 +321,12 @@ export default function ElectionResultsPage() {
                                 </p>
                               )}
                               
-                              {/* Vote Count and Percentage Bar */}
+                              {/* Vote count only — candidate % and bar hidden per client (TEMP / display preference) */}
                               <div className="mt-4 space-y-2">
                                 <div className="flex items-center justify-between">
                                   <span className="text-sm font-semibold text-gray-700">
                                     {candidate.voteCount} votes
                                   </span>
-                                  <span
-                                    className="text-lg font-bold"
-                                    style={{ color: "#3498db" }}
-                                  >
-                                    {candidate.percentage}%
-                                  </span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full transition-all duration-500"
-                                    style={{
-                                      width: `${candidate.percentage}%`,
-                                      backgroundColor: isWinner ? "#3498db" : "#95a5a6",
-                                    }}
-                                  />
                                 </div>
 
                                 {/* Branch Breakdown */}

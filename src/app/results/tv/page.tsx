@@ -318,24 +318,12 @@ function TVResultsContent() {
                               </p>
                             )}
 
-                            {/* Vote Count and Percentage */}
+                            {/* Vote count only — candidate % and bar hidden per client (TEMP / display preference) */}
                             <div className="space-y-1">
-                              <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center justify-center text-xs">
                                 <span className="font-semibold text-gray-700">
                                   {candidate.voteCount} votes
                                 </span>
-                                <span className="text-sm font-bold" style={{ color: "#3498db" }}>
-                                  {candidate.percentage}%
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all duration-500"
-                                  style={{
-                                    width: `${candidate.percentage}%`,
-                                    backgroundColor: isWinner ? "#3498db" : "#95a5a6",
-                                  }}
-                                />
                               </div>
 
                               {/* Branch Breakdown */}
