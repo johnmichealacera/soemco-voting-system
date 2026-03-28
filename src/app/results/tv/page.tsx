@@ -344,13 +344,16 @@ function TVResultsContent() {
                                   <div className="text-xs font-medium text-gray-600 mb-1 text-center">
                                     Votes by Branch:
                                   </div>
-                                  <div className="grid grid-cols-2 gap-1">
+                                  <div className="grid grid-cols-4 gap-1">
                                     {candidate.branchBreakdown.map((branch: any) => (
-                                      <div key={branch.branchId} className="flex justify-between items-center text-xs bg-gray-50 px-1 py-0.5 rounded">
-                                        <span className="text-gray-700 truncate mr-1">
+                                      <div
+                                        key={branch.branchId}
+                                        className="flex min-w-0 justify-between items-center gap-1 text-[10px] leading-tight bg-gray-50 px-1 py-0.5 rounded"
+                                      >
+                                        <span className="text-gray-700 truncate" title={branch.branchName}>
                                           {branch.branchName}
                                         </span>
-                                        <span className="font-semibold" style={{ color: "#2c3e50" }}>
+                                        <span className="font-semibold shrink-0 tabular-nums" style={{ color: "#2c3e50" }}>
                                           {branch.votes}
                                         </span>
                                       </div>
