@@ -72,7 +72,7 @@ function useRankingAnimation(results: any[]) {
     if (results) {
       updateRankings(results)
     }
-  }, [results])
+  }, [results, updateRankings])
 
   return animations
 }
@@ -88,11 +88,15 @@ function ResultsContent() {
   })
 
   // Filter to get active elections (VOTING_ACTIVE or RESULTS_CERTIFIED)
-  const activeElections = elections?.filter(
-    (e: any) =>
-      e.status === ElectionStatus.VOTING_ACTIVE ||
-      e.status === ElectionStatus.RESULTS_CERTIFIED
-  ) || []
+  const activeElections = useMemo(
+    () =>
+      elections?.filter(
+        (e: any) =>
+          e.status === ElectionStatus.VOTING_ACTIVE ||
+          e.status === ElectionStatus.RESULTS_CERTIFIED
+      ) || [],
+    [elections]
+  )
 
   const [selectedElectionId, setSelectedElectionId] = useState<string | null>(
     electionIdParam || null
@@ -110,7 +114,7 @@ function ResultsContent() {
       // Update URL to reflect the selected election
       router.replace(`/results?electionId=${firstElectionId}`, { scroll: false })
     }
-  }, [elections, electionIdParam, activeElections, router])
+  }, [electionIdParam, activeElections, router])
 
   const { data: resultsData, isLoading: resultsLoading, error } = useQuery({
     queryKey: ["election-results", selectedElectionId],
@@ -274,7 +278,7 @@ function ResultsContent() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
           <Card className="border-0 shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -327,6 +331,25 @@ function ResultsContent() {
                   style={{ backgroundColor: "#ebf5fb" }}
                 >
                   <BarChart3 className="w-6 h-6" style={{ color: "#3498db" }} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Members Voted</p>
+                  <p className="text-3xl font-bold" style={{ color: "#2c3e50" }}>
+                    {summary.totalBallotsCast ?? 0}
+                  </p>
+                </div>
+                <div
+                  className="p-3 rounded-full"
+                  style={{ backgroundColor: "#ebf5fb" }}
+                >
+                  <User className="w-6 h-6" style={{ color: "#3498db" }} />
                 </div>
               </div>
             </CardContent>

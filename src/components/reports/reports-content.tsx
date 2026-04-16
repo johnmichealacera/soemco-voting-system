@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -81,6 +81,14 @@ interface ResultVoter {
   branchId: string | null
 }
 
+interface MembersReportResponse {
+  members: MemberReport[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 interface ElectionResultsResponse {
   election: { id: string; title: string; status: string }
   results: Array<{
@@ -100,6 +108,7 @@ interface ElectionResultsResponse {
   }>
   summary: {
     totalVotes: number
+    totalBallotsCast: number
     totalEligibleMembers: number
     overallParticipationRate: number
   }
@@ -119,9 +128,17 @@ async function fetchBranches(): Promise<Branch[]> {
   return res.json()
 }
 
-async function fetchMembersReport(branchIds: string[]): Promise<{ members: MemberReport[]; total: number }> {
+async function fetchMembersReport(
+  branchIds: string[],
+  votedStatus: "all" | "voted" | "not_voted",
+  page: number,
+  pageSize: number
+): Promise<MembersReportResponse> {
   const params = new URLSearchParams()
   if (branchIds.length > 0) params.set("branchIds", branchIds.join(","))
+  params.set("votedStatus", votedStatus)
+  params.set("page", String(page))
+  params.set("pageSize", String(pageSize))
   const res = await fetch(`/api/reports/members?${params.toString()}`)
   if (!res.ok) throw new Error("Failed to fetch members report")
   return res.json()
@@ -143,6 +160,9 @@ export function ReportsContent() {
   const [activeTab, setActiveTab] = useState<TabId>("members")
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([])
   const [branchPopoverOpen, setBranchPopoverOpen] = useState(false)
+  const [votedStatusFilter, setVotedStatusFilter] = useState<"all" | "voted" | "not_voted">("all")
+  const [membersPage, setMembersPage] = useState(1)
+  const membersPageSize = 50
   const [selectedElectionId, setSelectedElectionId] = useState<string>("")
   const [selectedResultsElectionId, setSelectedResultsElectionId] = useState<string>("")
   const [selectedResultsBranchId, setSelectedResultsBranchId] = useState<string>("")
@@ -153,10 +173,17 @@ export function ReportsContent() {
   })
 
   const { data: membersData, isLoading: membersLoading } = useQuery({
-    queryKey: ["report-members", selectedBranchIds],
-    queryFn: () => fetchMembersReport(selectedBranchIds),
+    queryKey: ["report-members", selectedBranchIds, votedStatusFilter, membersPage, membersPageSize],
+    queryFn: () =>
+      fetchMembersReport(selectedBranchIds, votedStatusFilter, membersPage, membersPageSize),
     enabled: activeTab === "members",
   })
+
+  const membersTotalPages = membersData?.totalPages ?? 1
+
+  useEffect(() => {
+    setMembersPage(1)
+  }, [selectedBranchIds, votedStatusFilter])
 
   const { data: elections = [], isLoading: electionsLoading } = useQuery({
     queryKey: ["report-elections"],
@@ -201,7 +228,7 @@ export function ReportsContent() {
     if (!electionResults) {
       return {
         results: [],
-        summary: { totalVotes: 0, totalEligibleMembers: 0, overallParticipationRate: 0 },
+        summary: { totalVotes: 0, totalBallotsCast: 0, totalEligibleMembers: 0, overallParticipationRate: 0 },
         branchBreakdown: [] as ElectionResultsResponse["branchBreakdown"],
       }
     }
@@ -252,6 +279,7 @@ export function ReportsContent() {
     const summary = branchRow
       ? {
           totalVotes: branchRow.totalVotes,
+          totalBallotsCast: electionResults.summary.totalBallotsCast,
           totalEligibleMembers: branchRow.totalMembers,
           overallParticipationRate: branchRow.participationRate,
         }
@@ -479,6 +507,22 @@ export function ReportsContent() {
                   )}
                 </PopoverContent>
               </Popover>
+              <span className="text-sm text-gray-600 ml-2">Voting:</span>
+              <Select
+                value={votedStatusFilter}
+                onValueChange={(value: "all" | "voted" | "not_voted") =>
+                  setVotedStatusFilter(value)
+                }
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All members" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All members</SelectItem>
+                  <SelectItem value="voted">Voted</SelectItem>
+                  <SelectItem value="not_voted">Not voted</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent className="bg-white p-6">
@@ -491,6 +535,9 @@ export function ReportsContent() {
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                   <p className="text-sm text-gray-600">
                     Total: <strong>{membersData?.total ?? 0}</strong> member(s)
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Page <strong>{membersData?.page ?? 1}</strong> of <strong>{membersTotalPages}</strong>
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -550,6 +597,28 @@ export function ReportsContent() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <span className="mr-auto text-sm text-gray-600">
+                    Showing page <strong>{membersData?.page ?? 1}</strong> of{" "}
+                    <strong>{membersTotalPages}</strong>
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMembersPage((prev) => Math.max(1, prev - 1))}
+                    disabled={membersPage <= 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMembersPage((prev) => Math.min(membersTotalPages, prev + 1))}
+                    disabled={membersPage >= membersTotalPages}
+                  >
+                    Next
+                  </Button>
                 </div>
               </>
             )}
@@ -755,6 +824,12 @@ export function ReportsContent() {
                     <p className="text-sm text-gray-600">Eligible members</p>
                     <p className="text-2xl font-semibold" style={{ color: "#2c3e50" }}>
                       {filteredResultsData.summary?.totalEligibleMembers ?? 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border p-4" style={{ borderColor: "#dee2e6" }}>
+                    <p className="text-sm text-gray-600">Members voted</p>
+                    <p className="text-2xl font-semibold" style={{ color: "#2c3e50" }}>
+                      {filteredResultsData.summary?.totalBallotsCast ?? 0}
                     </p>
                   </div>
                   <div className="rounded-lg border p-4" style={{ borderColor: "#dee2e6" }}>

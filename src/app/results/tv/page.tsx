@@ -64,7 +64,7 @@ function useRankingAnimation(results: any[]) {
     if (results) {
       updateRankings(results)
     }
-  }, [results])
+  }, [results, updateRankings])
 
   return animations
 }
@@ -80,11 +80,15 @@ function TVResultsContent() {
   })
 
   // Filter to get active elections (VOTING_ACTIVE or RESULTS_CERTIFIED)
-  const activeElections = elections?.filter(
-    (e: any) =>
-      e.status === ElectionStatus.VOTING_ACTIVE ||
-      e.status === ElectionStatus.RESULTS_CERTIFIED
-  ) || []
+  const activeElections = useMemo(
+    () =>
+      elections?.filter(
+        (e: any) =>
+          e.status === ElectionStatus.VOTING_ACTIVE ||
+          e.status === ElectionStatus.RESULTS_CERTIFIED
+      ) || [],
+    [elections]
+  )
 
   const [selectedElectionId, setSelectedElectionId] = useState<string | null>(
     electionIdParam || null
@@ -102,7 +106,7 @@ function TVResultsContent() {
       // Update URL to reflect the selected election
       router.replace(`/results/tv?electionId=${firstElectionId}`, { scroll: false })
     }
-  }, [elections, electionIdParam, activeElections, router])
+  }, [electionIdParam, activeElections, router])
 
   const { data: resultsData, isLoading: resultsLoading, error } = useQuery({
     queryKey: ["election-results", selectedElectionId],

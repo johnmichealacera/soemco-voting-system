@@ -56,7 +56,7 @@ function useRankingAnimation(results: any[]) {
     if (results) {
       updateRankings(results)
     }
-  }, [results])
+  }, [results, updateRankings])
 
   return animations
 }
@@ -135,7 +135,7 @@ export default function ElectionResultsPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <Card className="border-0 shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -188,6 +188,25 @@ export default function ElectionResultsPage() {
                   style={{ backgroundColor: "#ebf5fb" }}
                 >
                   <BarChart3 className="w-6 h-6" style={{ color: "#3498db" }} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Members Voted</p>
+                  <p className="text-3xl font-bold" style={{ color: "#2c3e50" }}>
+                    {summary.totalBallotsCast ?? 0}
+                  </p>
+                </div>
+                <div
+                  className="p-3 rounded-full"
+                  style={{ backgroundColor: "#ebf5fb" }}
+                >
+                  <User className="w-6 h-6" style={{ color: "#3498db" }} />
                 </div>
               </div>
             </CardContent>

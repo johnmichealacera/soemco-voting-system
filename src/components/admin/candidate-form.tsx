@@ -77,6 +77,7 @@ interface Position {
 
 interface Member {
   id: string
+  memberId?: string
   userId: string
   firstName: string
   lastName: string
@@ -101,9 +102,15 @@ async function fetchPositions(electionId: string): Promise<Position[]> {
   return election.positions || []
 }
 
-async function fetchMembers(): Promise<Member[]> {
-  // Fetch all members by using a large pageSize
-  const res = await fetch("/api/members?pageSize=10000")
+async function fetchMembers(search: string): Promise<Member[]> {
+  const params = new URLSearchParams({
+    page: "1",
+    pageSize: "30",
+  })
+  if (search.trim()) {
+    params.set("search", search.trim())
+  }
+  const res = await fetch(`/api/members?${params.toString()}`)
   if (!res.ok) throw new Error("Failed to fetch members")
   const data = await res.json()
   // Handle paginated response structure
@@ -165,12 +172,6 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
     enabled: open,
   })
 
-  const { data: members } = useQuery({
-    queryKey: ["members"],
-    queryFn: fetchMembers,
-    enabled: open,
-  })
-
   const { data: candidates } = useQuery({
     queryKey: ["candidates"],
     queryFn: fetchCandidates,
@@ -202,9 +203,26 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
   // Search state for member dropdown
   const [memberSearchOpen, setMemberSearchOpen] = useState(false)
   const [memberSearchQuery, setMemberSearchQuery] = useState("")
+  const [debouncedMemberSearchQuery, setDebouncedMemberSearchQuery] = useState("")
+  const [selectedMemberSnapshot, setSelectedMemberSnapshot] = useState<Member | null>(null)
   const [enhancingField, setEnhancingField] = useState<EnhanceField | null>(null)
 
-  // Filter members based on search query and exclude existing candidates
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedMemberSearchQuery(memberSearchQuery)
+    }, 250)
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [memberSearchQuery])
+
+  const { data: members, isFetching: isFetchingMembers } = useQuery({
+    queryKey: ["members", debouncedMemberSearchQuery],
+    queryFn: () => fetchMembers(debouncedMemberSearchQuery),
+    enabled: open && memberSearchOpen,
+  })
+
+  // Exclude members already assigned as candidates; text filtering is server-side.
   const filteredMembers = useMemo(() => {
     if (!members || !Array.isArray(members)) return []
 
@@ -216,35 +234,16 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
     )
 
     // Filter out members who are already candidates
-    let availableMembers = members.filter(
-      (member: any) => !existingCandidateUserIds.has(member.userId)
-    )
-
-    // Apply search filter if there's a search query
-    if (memberSearchQuery.trim()) {
-      const query = memberSearchQuery.toLowerCase().trim()
-      availableMembers = availableMembers.filter((member: any) => {
-        const fullName = `${member.firstName} ${member.lastName}`.toLowerCase()
-        const email = member.user?.email?.toLowerCase() || ""
-        const displayName = member.user?.name?.toLowerCase() || ""
-        const memberId = member.memberId?.toLowerCase() || ""
-        return (
-          fullName.includes(query) ||
-          email.includes(query) ||
-          displayName.includes(query) ||
-          memberId.includes(query)
-        )
-      })
-    }
+    let availableMembers = members.filter((member) => !existingCandidateUserIds.has(member.userId))
 
     return availableMembers
-  }, [members, memberSearchQuery, candidates, isEditing, candidate])
+  }, [members, candidates, isEditing, candidate])
 
   // Get selected member display name
   const selectedMember = useMemo(() => {
-    if (!formData.userId || !members) return null
-    return members.find((m) => m.userId === formData.userId)
-  }, [formData.userId, members])
+    if (!formData.userId) return null
+    return members?.find((m) => m.userId === formData.userId) ?? selectedMemberSnapshot
+  }, [formData.userId, members, selectedMemberSnapshot])
 
   useEffect(() => {
     if (candidate) {
@@ -295,6 +294,8 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
     if (!open) {
       setMemberSearchOpen(false)
       setMemberSearchQuery("")
+      setDebouncedMemberSearchQuery("")
+      setSelectedMemberSnapshot(null)
     }
   }, [open])
 
@@ -560,6 +561,11 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
                         </div>
                       </div>
                       <div className="max-h-[300px] overflow-y-auto">
+                        {isFetchingMembers ? (
+                          <div className="py-4 text-center text-sm text-muted-foreground">
+                            Loading members...
+                          </div>
+                        ) : null}
                         {filteredMembers && filteredMembers.length > 0 ? (
                           filteredMembers.map((member) => (
                             <div
@@ -569,6 +575,7 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
                                 formData.userId === member.userId && "bg-blue-50 border-blue-200"
                               )}
                               onClick={() => {
+                                setSelectedMemberSnapshot(member)
                                 setFormData({ ...formData, userId: member.userId })
                                 setMemberSearchOpen(false)
                                 setMemberSearchQuery("")
@@ -588,12 +595,12 @@ export function CandidateForm({ candidate, open, onClose }: CandidateFormProps) 
                                 </div>
                                 <div className="text-xs text-slate-600 truncate">
                                   {member.user?.email}
-                                  {(member as any).memberId && ` • ${(member as any).memberId}`}
+                                  {member.memberId && ` • ${member.memberId}`}
                                 </div>
                               </div>
                             </div>
                           ))
-                        ) : (
+                        ) : isFetchingMembers ? null : (
                           <div className="py-6 text-center text-sm text-muted-foreground">
                             {memberSearchQuery
                               ? "No members found matching your search."

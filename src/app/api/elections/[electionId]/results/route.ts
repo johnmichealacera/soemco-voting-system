@@ -4,13 +4,6 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { UserRole } from "@prisma/client"
 
-/**
- * TEMP: Hardcoded participation rate for public election results display while voting is still open.
- * Client asked to show >50% so low turnout does not read poorly on-screen. Remove this and restore
- * the commented dynamic calculations below when reverting to real metrics.
- */
-const TEMP_RESULTS_DISPLAY_PARTICIPATION_PERCENT = 62.5
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ electionId: string }> }
@@ -109,6 +102,12 @@ export async function GET(
       return acc
     }, {} as Record<string, number>)
 
+    const totalBallotsCast = new Set(
+      votes
+        .map((vote) => vote.member?.memberId)
+        .filter((memberId): memberId is string => Boolean(memberId))
+    ).size
+
     // Calculate votes by branch
     const branchVoteCounts = votes.reduce((acc, vote) => {
       const branchId = vote.member?.branch?.id || 'unassigned'
@@ -163,9 +162,9 @@ export async function GET(
     // Prepare branch voting breakdown
     const branchBreakdown = Object.values(branchVoteCounts).map(branch => {
       const branchMemberCount = branchMemberCounts.find(b => b.branchId === (branch.id === 'unassigned' ? null : branch.id))?._count.id || 0
-      // Dynamic (restored when removing TEMP participation):
-      // const participationRate = branchMemberCount > 0 ? Math.round((branch.totalVotes / branchMemberCount) * 100 * 100) / 100 : 0
-      const participationRate = TEMP_RESULTS_DISPLAY_PARTICIPATION_PERCENT
+      const participationRate = branchMemberCount > 0
+        ? Math.round((branch.totalVotes / branchMemberCount) * 100 * 100) / 100
+        : 0
 
       return {
         id: branch.id,
@@ -326,11 +325,9 @@ export async function GET(
         maxSelectableCandidates: position.maxSelectableCandidates,
         totalVotes,
         totalEligibleMembers,
-        // Dynamic (restored when removing TEMP participation):
-        // participationRate: totalEligibleMembers > 0
-        //   ? Math.round((totalVotes / totalEligibleMembers) * 100 * 100) / 100
-        //   : 0,
-        participationRate: TEMP_RESULTS_DISPLAY_PARTICIPATION_PERCENT,
+        participationRate: totalEligibleMembers > 0
+          ? Math.round((totalVotes / totalEligibleMembers) * 100 * 100) / 100
+          : 0,
         candidates,
       }
     })
@@ -358,13 +355,12 @@ export async function GET(
           0
         ),
         totalVotes: votes.length,
+        totalBallotsCast,
         totalEligibleMembers,
-        // Dynamic (restored when removing TEMP participation):
-        // overallParticipationRate:
-        //   totalEligibleMembers > 0
-        //     ? Math.round((votes.length / totalEligibleMembers) * 100 * 100) / 100
-        //     : 0,
-        overallParticipationRate: TEMP_RESULTS_DISPLAY_PARTICIPATION_PERCENT,
+        overallParticipationRate:
+          totalEligibleMembers > 0
+            ? Math.round((votes.length / totalEligibleMembers) * 100 * 100) / 100
+            : 0,
       },
       branchBreakdown,
     })
