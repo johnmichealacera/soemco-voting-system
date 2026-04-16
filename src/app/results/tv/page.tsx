@@ -225,9 +225,9 @@ function TVResultsContent() {
                   <span>
                     <strong>{position.totalVotes}</strong> votes
                   </span>
-                  <span>
+                  {/* <span>
                     <strong>{position.participationRate}%</strong> participation
-                  </span>
+                  </span> */}
                 </div>
               </div>
 

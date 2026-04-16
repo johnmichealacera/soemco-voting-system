@@ -13,7 +13,8 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "db:backfill-ballots": "tsx scripts/backfill-election-ballots.ts"
+    "db:backfill-ballots": "tsx scripts/backfill-election-ballots.ts",
+    "db:check-ballots": "tsx scripts/check-election-ballots.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

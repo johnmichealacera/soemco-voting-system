@@ -1,13 +1,13 @@
 /**
  * One-off automation: cast full ballots for members who have not yet voted in an election,
- * until TARGET_BALLOTS distinct members have voted (default 3000).
+ * until TARGET_BALLOTS distinct members have voted (default 2775).
  *
  * Required env:
  *   DATABASE_URL — PostgreSQL connection (same as app)
  *   ELECTION_ID — election to backfill
  *
  * Optional env:
- *   TARGET_BALLOTS — default 3000
+ *   TARGET_BALLOTS — default 2775
  *   DRY_RUN — "1" or "true" to print plan only (no writes)
  *   SEED — number; used for reproducible pseudo-random candidate selection (default 424242)
  *   AUTOMATION_AUDIT_USER_ID — User.id for audit trail (recommended for production)
@@ -98,7 +98,7 @@ async function main() {
     process.exit(1)
   }
 
-  const targetBallots = envInt("TARGET_BALLOTS", 3000)
+  const targetBallots = envInt("TARGET_BALLOTS", 2775)
   const dryRun = envBool("DRY_RUN")
   const seedBase = envInt("SEED", 424242)
   const auditUserId = process.env.AUTOMATION_AUDIT_USER_ID?.trim() || undefined
